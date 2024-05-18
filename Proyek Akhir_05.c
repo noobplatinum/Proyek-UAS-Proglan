@@ -17,11 +17,11 @@
 struct room
 {
     int number;
-    int guestcount;
     char type[20];
     char status[10];
-    int price;
     int days;
+    int maxguests;
+    int price;
     struct room *next;
 };
 
@@ -42,6 +42,15 @@ struct customer
     struct customer *right;
 }; 
 
+struct roomtype
+{
+    char type[20];
+    int price;
+    int maxguests;
+    int amount;
+    struct roomtype *next;
+};
+
 int main(void)
 {
     int opsiA, opsiB, opsiC;
@@ -53,8 +62,45 @@ int main(void)
         printf("File tidak ditemukan!\n");
         return 1;
     }
+
     fscanf(file, "%d,%d", &floor, &room);
     fclose(file);
+
+    //make a head node for room types
+    struct roomtype *headtype = NULL;
+    //read roomtype.txt and store the data in the linked list with format "type,price,maxguests"
+    FILE *file2 = fopen("roomtype.txt", "r");
+    if(file2 == NULL)
+    {
+        printf("File tidak ditemukan!\n");
+        return 1;
+    }
+
+    char type[20];
+    int price, maxguests, amount;
+    while(fscanf(file2, "%[^,],%d,%d,%d\n", type, &price, &maxguests, &amount) != EOF)
+    {
+        struct roomtype *newtype = (struct roomtype *)malloc(sizeof(struct roomtype));
+        strcpy(newtype->type, type);
+        newtype->price = price;
+        newtype->maxguests = maxguests;
+        newtype->amount = amount;
+        newtype->next = NULL;
+
+        if(headtype == NULL)
+        {
+            headtype = newtype;
+        }
+        else
+        {
+            struct roomtype *temp = headtype;
+            while(temp->next != NULL)
+            {
+                temp = temp->next;
+            }
+            temp->next = newtype;
+        }
+    }
 
     struct floor *head = NULL;
 
@@ -186,8 +232,6 @@ void menustruktur(int floor, int room, int maxdays, int emptyrooms)
     printf("+---+-------------------------------------------------------+\n");
     printf("| 3 | Kembali                                               |\n"); 
     printf("+---+-------------------------------------------------------+\n");
-    printf("| 4 | Reset Struktur Hotel                                  |\n");
-    printf("+---+-------------------------------------------------------+\n");
     printf("| Masukkan Pilihan Anda: ");
 }
 
@@ -220,7 +264,7 @@ void menutamu(int *totalguests, int *totalrooms)
     printf("| Masukkan Pilihan Anda: ");
 }
 
-void menukeuangan(int dailyprofit, int totalprofit, int maxdays)
+void menukeuangan(int dailyprofit, int totalprofit, int maxdays, struct roomtype *types)
 {
     printf("||_________________________________________________________||\n");
     printf("+-----------------------------------------------------------+\n");
@@ -234,6 +278,10 @@ void menukeuangan(int dailyprofit, int totalprofit, int maxdays)
     printf("+-----------------------------------------------------------+\n");
     printf("| Tipe-Tipe Kamar                                           |\n");
     //for loop to print each listed type, read from roomtype.txt")
+    for(int i = 0; i < 100; i++)
+    {
+        printf("| %d. %s - Rp.%d |\n", i+1, types[i].type, types[i].price);
+    }
     printf("+___+_______________________________________________________+\n");
     printf("| 1 | Ubah Kelas Kamar                                      |\n");
     printf("+---+-------------------------------------------------------+\n");
@@ -257,7 +305,22 @@ void statreader(int *totalguests, int *maxdays, int floors, int rooms, int *dail
 void initfloor(struct floor **head, int floor, int room)
 {
     struct floor *newfloor = (struct floor *)malloc(sizeof(struct floor));
-    newfloor->number = floor;
+    //for the floor number, use a counter to increment the floor number
+    int counter;
+    if(*head == NULL)
+    {
+        counter = 1;
+    }
+    else
+    {
+        struct floor *temp = *head;
+        while(temp->next != NULL)
+        {
+            temp = temp->next;
+        }
+        counter = temp->number + 1;
+    }
+    newfloor->number = counter;
     newfloor->rooms = room;
     newfloor->next = NULL;
     newfloor->headroom = NULL;
@@ -277,34 +340,71 @@ void initfloor(struct floor **head, int floor, int room)
     }
 }
 
-void initroom(struct floor *head, int floor, int room)
+void initroom(struct floor *head, int floor, int room, struct roomtype *headtype)
 {
+    int i;
     struct floor *temp = head;
+    int typecounter = 0;
+    struct roomtype *temptype = headtype;
+    while(temptype != NULL)
+    {
+        typecounter++;
+        temptype = temptype->next;
+    }
+
     while(temp != NULL)
     {
-        struct room *newroom = (struct room *)malloc(sizeof(struct room));
-        newroom->number = room;
-        newroom->guestcount = 0;
-        strcpy(newroom->type, "Standard");
-        strcpy(newroom->status, "Available");
-        newroom->price = 100000;
-        newroom->days = 0;
-        newroom->next = NULL;
-
-        if(temp->headroom == NULL)
+        int roomnumber = 1, j;
+        for(i = 0; i < typecounter; i++)
         {
-            temp->headroom = newroom;
-        }
-        else
-        {
-            struct room *temp2 = temp->headroom;
-            while(temp2->next != NULL)
+            temptype = headtype;
+            for(j = 0; j < i; j++)
             {
-                temp2 = temp2->next;
+                temptype = temptype->next;
             }
-            temp2->next = newroom;
+            for(j = 0; j < temptype->amount; j++)
+            {
+                struct room *newroom = (struct room *)malloc(sizeof(struct room));
+                newroom->number = roomnumber;
+                strcpy(newroom->type, temptype->type);
+                strcpy(newroom->status, "Kosong");
+                newroom->days = 0;
+                newroom->maxguests = temptype->maxguests;
+                newroom->price = temptype->price;
+                newroom->next = NULL;
+
+                if(temp->headroom == NULL)
+                {
+                    temp->headroom = newroom;
+                }
+                else
+                {
+                    struct room *temp2 = temp->headroom;
+                    while(temp2->next != NULL)
+                    {
+                        temp2 = temp2->next;
+                    }
+                    temp2->next = newroom;
+                }
+                roomnumber++;
+            }
         }
         temp = temp->next;
+    }
+}
+
+void initallfloors(struct floor **head, int floor, int room, struct roomtype *headtype)
+{
+    int i;
+    for(i = 1; i <= floor; i++)
+    {
+        initfloor(head, i, room);
+        struct floor *temp = *head;
+        while(temp->next != NULL)
+        {
+            temp = temp->next;
+        }
+        initroom(temp, i, room, headtype);
     }
 }
 

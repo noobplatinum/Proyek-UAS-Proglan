@@ -1,2 +1,2 @@
-Standar,200000, 3
-Deluxe,500000, 5
+Standar,200000,3,7
+Deluxe,500000,5,3
