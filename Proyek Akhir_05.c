@@ -393,6 +393,51 @@ void initroom(struct floor *head, int floor, int room, struct roomtype *headtype
     }
 }
 
+
+void emptyhotel(struct floor *head)
+{
+    FILE *guestfile = fopen("roomdata.txt", "w");
+    if(guestfile == NULL)
+    {
+        printf("File tidak ditemukan!\n");
+        return;
+    }
+
+    struct floor *temp = head;
+    int i;
+    while(temp != NULL)
+    {
+        struct room *temp2 = temp->headroom;
+        while(temp2 != NULL)
+        {
+            if(temp2->guests == NULL)
+            {
+                fprintf(guestfile, "%d,0\n", temp2->maxguests);
+                for(i = 0; i < temp2->maxguests; i++)
+                {
+                    fprintf(guestfile, "EMPTY,X,0\n");
+                }
+            }
+            else if(temp2->guests != NULL)
+            {
+                fprintf(guestfile, "%d,0\n", temp2->maxguests);
+                //traverse the guests array and free the memory
+                for(i = 0; i < temp2->maxguests; i++)
+                {
+                    memset(temp2->guests[i].name, 0, sizeof(temp2->guests[i].name));
+                    fprintf(guestfile, "EMPTY,X,0\n");
+                }
+                free(temp2->guests);
+                temp2->guests = NULL;
+                strcpy(temp2->status, "Kosong");
+            }
+            temp2 = temp2->next;
+        }
+        temp = temp->next;
+    }
+    fclose(guestfile);
+}
+
 void initallfloors(struct floor **head, int floor, int room, struct roomtype *headtype)
 {
     int i;
@@ -625,4 +670,48 @@ void print_hotel(int floors, int rooms)
         printf("-");
     }
     printf("+\n");
+}
+
+void emptyhotel(struct floor *head)
+{
+    FILE *guestfile = fopen("roomdata.txt", "w");
+    if(guestfile == NULL)
+    {
+        printf("File tidak ditemukan!\n");
+        return;
+    }
+
+    struct floor *temp = head;
+    int i;
+    while(temp != NULL)
+    {
+        struct room *temp2 = temp->headroom;
+        while(temp2 != NULL)
+        {
+            if(temp2->guests == NULL)
+            {
+                fprintf(guestfile, "%d,0\n", temp2->maxguests);
+                for(i = 0; i < temp2->maxguests; i++)
+                {
+                    fprintf(guestfile, "EMPTY,X,0\n");
+                }
+            }
+            else if(temp2->guests != NULL)
+            {
+                fprintf(guestfile, "%d,0\n", temp2->maxguests);
+                //traverse the guests array and free the memory
+                for(i = 0; i < temp2->maxguests; i++)
+                {
+                    memset(temp2->guests[i].name, 0, sizeof(temp2->guests[i].name));
+                    fprintf(guestfile, "EMPTY,X,0\n");
+                }
+                free(temp2->guests);
+                temp2->guests = NULL;
+                strcpy(temp2->status, "Kosong");
+            }
+            temp2 = temp2->next;
+        }
+        temp = temp->next;
+    }
+    fclose(guestfile);
 }
