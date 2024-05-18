@@ -4,7 +4,7 @@
 // 1. Adi Nugroho (2306208546)
 // 2. Jesaya David Gamalael N P (2306161965)
 // 14 Mei 2024
-// Versi 0.2 - Base Frame & Menus
+// Versi 0.4 - Floor & Room Initialization + Guest Initialization!
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,6 +22,7 @@ struct room
     int days;
     int maxguests;
     int price;
+    struct guest *guests;   
     struct room *next;
 };
 
@@ -33,13 +34,12 @@ struct floor
     struct floor *next;
 };
 
-struct customer
+struct guest
 {
     char name[50];
+    char gender[10];
     char status[20];
     int age;
-    struct customer *left;
-    struct customer *right;
 }; 
 
 struct roomtype
@@ -406,6 +406,64 @@ void initallfloors(struct floor **head, int floor, int room, struct roomtype *he
         }
         initroom(temp, i, room, headtype);
     }
+}
+
+void initguest(int floor, int room, struct floor *head, struct room *headroom, struct roomtype *headtype)
+{
+    FILE *guestfile = fopen("roomdata.txt", "r");
+    if(guestfile == NULL)
+    {
+        printf("File tidak ditemukan!\n");
+        return;
+    }
+
+    struct floor *tempfloor = head;
+    int guestcnt, i;
+    while(tempfloor != NULL)
+    {
+        struct room *temproom = tempfloor->headroom;
+        while(temproom != NULL)
+        {
+            struct guest *guests = (struct guest *)malloc(temproom->maxguests * sizeof(struct guest));
+            fscanf(guestfile, "%d,%d\n", &guestcnt, &temproom->days); 
+            if(guestcnt > 0 && temproom->days > 0) // Check if there are guests and the room is occupied for more than 0 days
+            {
+                for(i = 0; i < guestcnt; i++)
+                {
+                    fscanf(guestfile, "%[^,],%c,%d\n", guests[i].name, &guests[i].gender, &guests[i].age);
+                    switch(guests[i].age)
+                    {
+                        case 1 ... 12:
+                            strcpy(guests[i].status, "Anak");
+                            break;
+                        case 13 ... 20:
+                            strcpy(guests[i].status, "Remaja");
+                            break;
+                        case 21 ... 50:
+                            strcpy(guests[i].status, "Dewasa");
+                            break;
+                        case 51 ... 100:
+                            strcpy(guests[i].status, "Lansia");
+                            break;
+                    }
+                }
+                temproom->guests = guests;
+                strcpy(temproom->status, "Terisi");
+            }
+            else
+            {
+                temproom->guests = NULL;
+                strcpy(temproom->status, "Kosong");
+                for(i = 0; i < guestcnt; i++)
+                {
+                    fscanf(guestfile, "%*[^,],%*c,%*d\n");
+                }
+            }
+            temproom = temproom->next; // Moved this line outside of the if-else statement
+        }
+        tempfloor = tempfloor->next;
+    }
+    fclose(guestfile);
 }
 
 void menuhelp(void)
