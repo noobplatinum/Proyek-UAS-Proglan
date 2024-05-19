@@ -39,8 +39,247 @@ struct roomtype
     struct roomtype *next;
 };
 
-void increasehotelsize(struct floor **head, int floor, int room, struct roomtype *headtype)
+void increasefloorsize(struct floor **head, int floor, int *room, struct roomtype *headtype, int newroom)
 {
+    FILE *file = fopen("roomdata.txt", "w");
+    if(file == NULL)
+    {
+        printf("File tidak ditemukan!\n");
+        return;
+    }
+
+    struct floor *tempfloor = *head;
+    struct roomtype *temptype = headtype;
+    int typecounter = 0;
+
+    // Calculate the number of room types
+    while(temptype != NULL)
+    {
+        typecounter++;
+        temptype = temptype->next;
+    }
+
+    // Iterate over each floor
+    while(tempfloor != NULL)
+    {
+        int oldroomcounter = tempfloor->rooms;
+        tempfloor->rooms = newroom;
+        int extrarooms = newroom - oldroomcounter;
+        struct room *temproom = tempfloor->headroom, *lastroom = NULL;
+
+        // Iterate over existing rooms
+        while(temproom != NULL)
+        {
+            fprintf(file, "%d,%d\n", temproom->maxguests, temproom->days);
+            if(temproom->guests != NULL)
+            {
+                for(int i = 0; i < temproom->maxguests; i++)
+                {
+                    fprintf(file, "%s,%c,%d\n", temproom->guests[i].name, temproom->guests[i].gender, temproom->guests[i].age);
+                }
+            }
+            else
+            {
+                for(int i = 0; i < temproom->maxguests; i++)
+                {
+                    fprintf(file, "EMPTY,X,0\n");
+                }
+            }
+            lastroom = temproom;
+            temproom = temproom->next;
+        }
+
+        // Add new rooms
+        for(int i = 0; i < extrarooms; i++)
+        {
+            struct room *newroom = (struct room *)malloc(sizeof(struct room));
+            if(newroom == NULL)
+            {
+                printf("Memory allocation failed!\n");
+                fclose(file);
+                return;
+            }
+            newroom->number = tempfloor->number * 1000 + oldroomcounter + i + 1;
+            strcpy(newroom->type, lastroom->type);
+            strcpy(newroom->status, "Kosong");
+            newroom->days = 0;
+            newroom->maxguests = lastroom->maxguests;
+            newroom->price = lastroom->price;
+            newroom->guests = NULL;
+            newroom->next = NULL;
+
+            if (lastroom == NULL)
+            {
+                tempfloor->headroom = newroom;
+            }
+            else
+            {
+                lastroom->next = newroom;
+            }
+            lastroom = newroom;
+
+            fprintf(file, "%d,%d\n", newroom->maxguests, newroom->days);
+            for(int j = 0; j < newroom->maxguests; j++)
+            {
+                fprintf(file, "EMPTY,X,0\n");
+            }
+        }
+
+        tempfloor->rooms = newroom; // Update room count in the floor
+        tempfloor = tempfloor->next;
+    }
+
+    fclose(file);
+
+    // Write the updated structure to structure.txt
+    FILE *file2 = fopen("structure.txt", "w");
+    if(file2 == NULL)
+    {
+        printf("File tidak ditemukan!\n");
+        return;
+    }
+    fprintf(file2, "%d,%d", floor, newroom);
+    fclose(file2);
+
+    // Write the updated room types to roomtype.txt
+    FILE *file3 = fopen("roomtype.txt", "w");
+    if(file3 == NULL)
+    {
+        printf("File tidak ditemukan!\n");
+        return;
+    }
+    temptype = headtype;
+    for(int i = 0; i < typecounter - 1; i++)
+    {
+        fprintf(file3, "%s,%d,%d,%d\n", temptype->type, temptype->price, temptype->maxguests, temptype->amount);
+        temptype = temptype->next;
+    }
+    int difference = newroom - *room;
+    if (temptype != NULL) 
+    {
+        fprintf(file3, "%s,%d,%d,%d\n", temptype->type, temptype->price, temptype->maxguests, temptype->amount + difference);
+    }
+    //in the temptype array, update the amount of rooms for the last room type
+    temptype = headtype;
+    for(int i = 0; i < typecounter - 1; i++)
+    {
+        temptype = temptype->next;
+    }
+    temptype->amount += difference;
+
+    fclose(file3);
+
+    // Update the total room count
+    *room = newroom;
+}
+
+void increasehotelsize(struct floor **head, int *floor, int *room, int newfloor, struct roomtype *headtype)
+{
+    FILE *file = fopen("roomdata.txt", "a");
+    if (file == NULL)
+    {
+        printf("File tidak ditemukan!\n");
+        return;
+    }
+
+    struct floor *tempfloor = *head;
+    struct roomtype *temptype = headtype;
+    int typecounter = 0;
+
+    // Calculate the number of room types
+    while (temptype != NULL)
+    {
+        typecounter++;
+        temptype = temptype->next;
+    }
+
+    // Move to the last floor in the linked list
+    while (tempfloor->next != NULL)
+    {
+        tempfloor = tempfloor->next;
+    }
+
+    int extrafloors = newfloor - *floor;
+    for (int i = 0; i < extrafloors; i++)
+    {
+        struct floor *newfloor = (struct floor *)malloc(sizeof(struct floor));
+        if (newfloor == NULL)
+        {
+            printf("Memory allocation failed!\n");
+            fclose(file);
+            return;
+        }
+
+        newfloor->number = tempfloor->number + 1;
+        newfloor->rooms = *room; // Use the updated room count
+        newfloor->next = NULL;
+        newfloor->headroom = NULL;
+        tempfloor->next = newfloor;
+
+        struct room *lastroom = NULL;
+        temptype = headtype;
+
+        int roomnumber = 1;
+        // Create rooms for the new floor
+        for (int j = 0; j < typecounter; j++)
+        {
+            int roomcounter = temptype->amount;
+            for (int k = 0; k < roomcounter; k++)
+            {
+                struct room *newroom = (struct room *)malloc(sizeof(struct room));
+                if (newroom == NULL)
+                {
+                    printf("Memory allocation failed!\n");
+                    fclose(file);
+                    return;
+                }
+
+                newroom->number = newfloor->number * 1000 + roomnumber;
+                roomnumber++;
+                strcpy(newroom->type, temptype->type);
+                strcpy(newroom->status, "Kosong");
+                newroom->days = 0;
+                newroom->maxguests = temptype->maxguests;
+                newroom->price = temptype->price;
+                newroom->guests = NULL;
+                newroom->next = NULL;
+
+                if (newfloor->headroom == NULL)
+                {
+                    newfloor->headroom = newroom;
+                }
+                else
+                {
+                    lastroom->next = newroom;
+                }
+                lastroom = newroom;
+
+                // Write the new room's data to roomdata.txt
+                fprintf(file, "%d,%d\n", newroom->maxguests, newroom->days);
+                for (int x = 0; x < newroom->maxguests; x++)
+                {
+                    fprintf(file, "EMPTY,X,0\n");
+                }
+            }
+            temptype = temptype->next;
+        }
+
+        tempfloor = newfloor;
+    }
+
+    fclose(file);
+
+    // Rewrite the structure.txt file with the new floor and room amount
+    FILE *file2 = fopen("structure.txt", "w");
+    if (file2 == NULL)
+    {
+        printf("File tidak ditemukan!\n");
+        return;
+    }
+    fprintf(file2, "%d,%d", newfloor, *room);
+    fclose(file2);
+
+    *floor = newfloor;
 }
 
 void emptyhotel(struct floor *head)
@@ -123,6 +362,9 @@ void initguest(int floor, int room, struct floor *head, struct room *headroom, s
                             break;
                         case 51 ... 100:
                             strcpy(guests[i].status, "Lansia");
+                            break;
+                        case 0:
+                            strcpy(guests[i].status, "Kosong");
                             break;
                     }
                 }
@@ -252,7 +494,171 @@ void initallfloors(struct floor **head, int floor, int room, struct roomtype *he
     }
 }
 
-int main() {
+void decreasesize(struct floor **head, int *floor, int *room, struct roomtype *headtype, int newroom, int newfloor)
+{
+    // Decrease the size of the hotel and empty the rooms
+    emptyhotel(*head);
+    
+    // Update structure.txt with the new floor and room amount
+    FILE *file = fopen("structure.txt", "w");
+    if(file == NULL)
+    {
+        printf("File tidak ditemukan!\n");
+        return;
+    }
+    fprintf(file, "%d,%d", newfloor, newroom);
+    fclose(file);
+    *room = newroom;
+    *floor = newfloor;
+
+    // Update roomtype.txt with the new room amount
+    // Set the first room type to the new amount, and all other room types to 0
+    FILE *file2 = fopen("roomtype.txt", "w");
+    if(file2 == NULL)
+    {
+        printf("File tidak ditemukan!\n");
+        return;
+    }
+    struct roomtype *temptype = headtype;
+    fprintf(file2, "%s,%d,%d,%d\n", temptype->type, temptype->price, temptype->maxguests, newroom);
+    while(temptype->next != NULL)
+    {
+        temptype = temptype->next;
+        fprintf(file2, "%s,%d,%d,%d\n", temptype->type, temptype->price, temptype->maxguests, 0);
+    }
+    fclose(file2);
+
+    // Free the excess floors. If the floor count exceeds newfloor, free it and the next floors
+    struct floor *current = *head;
+    struct floor *previous = NULL;
+    int currentFloor = 0;
+
+    while(current != NULL && currentFloor < newfloor)
+    {
+        previous = current;
+        current = current->next;
+        currentFloor++;
+    }
+
+    // If current is not NULL, it means we have more floors than newfloor
+    if(current != NULL)
+    {
+        // Free all remaining floors starting from the current floor
+        while(current != NULL)
+        {
+            struct floor *temp = current;
+            current = current->next;
+            free(temp);
+        }
+        // Set the end of the new list
+        if(previous != NULL)
+        {
+            previous->next = NULL;
+        }
+        else
+        {
+            // If previous is NULL, it means we are freeing all the floors
+            *head = NULL;
+        }
+    }
+
+    // After freeing the floors, free the rooms. If the room count exceeds newroom, free it and the next rooms
+    current = *head;
+    while(current != NULL)
+    {
+        struct room *currentRoom = current->headroom;
+        struct room *previousRoom = NULL;
+        int currentRoomNumber = 0;
+
+        while(currentRoom != NULL && currentRoomNumber < newroom)
+        {
+            previousRoom = currentRoom;
+            currentRoom = currentRoom->next;
+            currentRoomNumber++;
+        }
+
+        // If currentRoom is not NULL, it means we have more rooms than newroom
+        if(currentRoom != NULL)
+        {
+            // Free all remaining rooms starting from the current room
+            while(currentRoom != NULL)
+            {
+                struct room *temp = currentRoom;
+                currentRoom = currentRoom->next;
+                free(temp);
+            }
+            // Set the end of the new list
+            if(previousRoom != NULL)
+            {
+                previousRoom->next = NULL;
+            }
+            else
+            {
+                // If previousRoom is NULL, it means we are freeing all the rooms
+                current->headroom = NULL;
+            }
+        }
+        current = current->next;
+    }
+
+    // Traverse all the rooms and set all of them to the first room type
+    current = *head;
+    while(current != NULL)
+    {
+        struct room *currentRoom = current->headroom;
+        while(currentRoom != NULL)
+        {
+            struct roomtype *temptype = headtype;
+            strcpy(currentRoom->type, temptype->type);
+            currentRoom->maxguests = temptype->maxguests;
+            currentRoom->price = temptype->price;
+            currentRoom = currentRoom->next;
+        }
+        current = current->next;
+    }
+
+    // Update the room type amounts
+    temptype = headtype;
+    temptype->amount = newroom;
+    temptype = temptype->next;
+    while(temptype != NULL)
+    {
+        temptype->amount = 0;
+        temptype = temptype->next;
+    }
+
+    // Lastly, rewrite roomdata.txt with the emptied guest data
+    FILE *file3 = fopen("roomdata.txt", "w");
+    if(file3 == NULL)
+    {
+        printf("File tidak ditemukan!\n");
+        return;
+    }
+
+    int i;
+
+    current = *head;
+    while(current != NULL)
+    {
+        struct room *currentRoom = current->headroom;
+        while(currentRoom != NULL)
+        {
+            fprintf(file3, "%d,0\n", currentRoom->maxguests);
+            for(i = 0; i < currentRoom->maxguests; i++)
+            {
+                fprintf(file3, "EMPTY,X,0\n");
+            }
+            currentRoom = currentRoom->next;
+        }
+        current = current->next;
+    }
+
+    fclose(file3);
+    printf("Debug Finish\n");
+}
+
+int main() 
+{
     int floor, room;
     FILE *file = fopen("structure.txt", "r");
     if(file == NULL)
@@ -329,5 +735,33 @@ int main() {
         }
         temp = temp->next;
     }
+    printf("+===============================================================================================+\n");
+    printf("+====================================TESTING THE FUNCTIONS======================================+\n");
+    printf("+===============================================================================================+\n");
+    decreasesize(&head, &floor, &room, headtype, 4, 1);
+    //Print out the data again
+    temp = head;
+    while(temp != NULL)
+    {
+        printf("Floor number: %d\n", temp->number);
+        struct room *temp2 = temp->headroom;
+        while(temp2 != NULL)
+        {
+            printf("Room number: %d, Type: %s, Status: %s, Max guests: %d, Price: %d\n", temp2->number, temp2->type, temp2->status, temp2->maxguests, temp2->price);
+            if(strcmp(temp2->status, "Kosong") != 0)
+            {
+                for(i = 0; i < temp2->maxguests; i++)
+                {
+                    if(temp2->guests[i].gender != 'X');
+                    {
+                        printf("Guest %d: %s, %c, %s, %d\n", i + 1, temp2->guests[i].name, temp2->guests[i].gender, temp2->guests[i].status, temp2->guests[i].age);
+                    }
+                }
+            }
+            temp2 = temp2->next;
+        }
+        temp = temp->next;
+    }
+    printf("Debug Finish\n");
     return 0;
 }
