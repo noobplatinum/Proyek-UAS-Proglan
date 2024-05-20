@@ -872,6 +872,195 @@ void removeroomtype(struct roomtype **head, char type[20])
     fclose(file);
 }
 
+void registration(struct floor *head, int roomnumber, char type[20])
+{
+    //If the room number is valid and empty, the user will be brought here
+    //The user will then be asked to input the guest's data
+    printf("Room is available!\n");
+    //Traverse to the room
+    struct floor *tempfloor = head;
+    struct room *room = NULL;
+    while(tempfloor != NULL)
+    {
+        struct room *temproom = tempfloor->headroom;
+        while(temproom != NULL)
+        {
+            if(temproom->number == roomnumber)
+            {
+                room = temproom;
+                break;
+            }
+            temproom = temproom->next;
+        }
+        if(room != NULL)
+        {
+            break;
+        }
+        tempfloor = tempfloor->next;
+    }
+    //Print the room's type data first
+    printf(" Room Number: %d\n Type: %s\n Price: %d\n Max guests: %d\n", room->number, room->type, room->price, room->maxguests);
+    printf("Do you want to rent this room? (Y/N): ");
+    char answer;
+    scanf(" %c", &answer);  
+    if(answer == 'Y' || answer == 'y')
+    {
+        //If the user wants to rent the room, then the user will be asked to input the guest's data
+        int i;
+        char name[50];
+        //Make an array of guests
+        struct guest *guests = (struct guest *)malloc(room->maxguests * sizeof(struct guest));
+        for(i = 0; i < room->maxguests; i++)
+        {
+            printf("Guest %d\n", i + 1);
+            printf("Name (Type 00 for none): ");
+            scanf(" %[^\n]", name);
+            if(strcmp(name, "00") == 0)
+            {
+                strcpy(guests[i].name, "EMPTY");
+                guests[i].gender = 'X';
+                guests[i].age = 0;
+                strcpy(guests[i].status, "Kosong");
+                printf("Guest %d is empty!\n", i + 1);
+            }
+            else
+            {
+                strcpy(guests[i].name, name);
+                printf("Gender (L/W): ");
+                scanf(" %c", &guests[i].gender);
+                printf("Age: ");
+                do
+                {
+                    scanf("%d", &guests[i].age);
+
+                    if(guests[i].age < 0 || guests[i].age > 100)
+                    {
+                        printf("Invalid age! Please enter a valid age: ");
+                    }
+                } while (guests[i].age < 0 || guests[i].age > 100);    
+                switch(guests[i].age)
+                {
+                    case 1 ... 12:
+                        strcpy(guests[i].status, "Anak");
+                        break;
+                    case 13 ... 20:
+                        strcpy(guests[i].status, "Remaja");
+                        break;
+                    case 21 ... 50:
+                        strcpy(guests[i].status, "Dewasa");
+                        break;
+                    case 51 ... 100:
+                        strcpy(guests[i].status, "Lansia");
+                        break;
+                }
+            }
+        }
+        room->guests = guests;
+        strcpy(room->status, "Terisi");
+        printf("Renting period: ");
+        scanf("%d", &room->days);
+        printf("Room rented!\n");
+        //Update the roomdata.txt file with the new guest data
+
+        FILE *file = fopen("roomdata.txt", "w");
+        if(file == NULL)
+        {
+            printf("File tidak ditemukan!\n");
+            return;
+        }
+
+        struct floor *tempfloor = head;
+        while(tempfloor != NULL)
+        {
+            struct room *temproom = tempfloor->headroom;
+            while(temproom != NULL)
+            {
+                fprintf(file, "%d,%d\n", temproom->maxguests, temproom->days);
+                if(temproom->guests != NULL)
+                {
+                    for(i = 0; i < temproom->maxguests; i++)
+                    {
+                        fprintf(file, "%s,%c,%d\n", temproom->guests[i].name, temproom->guests[i].gender, temproom->guests[i].age);
+                    }
+                }
+                else
+                {
+                    for(i = 0; i < temproom->maxguests; i++)
+                    {
+                        fprintf(file, "EMPTY,X,0\n");
+                    }
+                }
+                temproom = temproom->next;
+            }
+            tempfloor = tempfloor->next;
+        }
+        fclose(file);
+        printf("Debug Finish!\n");
+    }
+    else
+    {
+        printf("Administration Cancelled!\n");
+        return;
+    }
+}
+
+void administration(struct floor *head)
+{
+    //This function's purpose is to print the number of rooms in the hotel for the user to pick
+    //After picking, the user will then be brought to the administration menu
+
+    //For each floor, print all the rooms
+    struct floor *temp = head;
+    while(temp != NULL)
+    {
+        printf("Floor number: %d\n", temp->number);
+        struct room *temp2 = temp->headroom;
+        while(temp2 != NULL)
+        {
+            printf("Room number: %d, Type: %s, Status: %s, Max guests: %d, Price: %d\n", temp2->number, temp2->type, temp2->status, temp2->maxguests, temp2->price);
+            temp2 = temp2->next;
+        }
+        temp = temp->next;
+    }
+    printf("Please enter the room number you want to rent: ");
+    int roomnumber;
+    scanf("%d", &roomnumber);
+    //First, check if the room number is valid
+    //Also, check if the room is empty
+    temp = head;
+    struct room *room = NULL;
+    while(temp != NULL)
+    {
+        struct room *temp2 = temp->headroom;
+        while(temp2 != NULL)
+        {
+            if(temp2->number == roomnumber)
+            {
+                room = temp2;
+                break;
+            }
+            temp2 = temp2->next;
+        }
+        if(room != NULL)
+        {
+            break;
+        }
+        temp = temp->next;
+    }
+    if(room == NULL)
+    {
+        printf("Room number not found!\n");
+        return;
+    }
+    if(strcmp(room->status, "Kosong") != 0)
+    {
+        printf("Room is not empty!\n");
+        return;
+    }
+    //If the room is empty, then the user can rent the room
+    registration(head, roomnumber, room->type);
+}
+
 int main() 
 {
     int floor, room;
