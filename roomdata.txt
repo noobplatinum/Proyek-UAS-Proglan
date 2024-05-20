@@ -1,36 +1,6 @@
-3,5
-Andi X,L,20
-Budi Y,L,15
-Cindi Z,W,8
-3,1
-Hunter,L,15
-Mirage,W,14
-EMPTY,X,0
 3,0
 EMPTY,X,0
 EMPTY,X,0
-EMPTY,X,0
-3,0
-EMPTY,X,0
-EMPTY,X,0
-EMPTY,X,0
-3,4
-Anton X,L,20
-Boni Y,L,15
-Cantik Z,W,8
-5,10
-Spear Goblin,L,20
-Goblin,L,20
-Goblin Hut,L,20
-Goblin Gang,L,20
-Goblin King,L,20
-3,5
-Andi X,L,20
-Budi Y,L,15
-Cindi Z,W,8
-3,1
-Hunter,L,15
-Mirage,W,14
 EMPTY,X,0
 3,0
 EMPTY,X,0
@@ -40,13 +10,51 @@ EMPTY,X,0
 EMPTY,X,0
 EMPTY,X,0
 EMPTY,X,0
-3,4
-Anton X,L,20
-Boni Y,L,15
-Cantik Z,W,8
-5,10
-Spear Goblin,L,20
-Goblin,L,20
-Goblin Hut,L,20
-Goblin Gang,L,20
-Goblin King,L,20
+5,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+5,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+5,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+3,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+3,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+3,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+5,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+5,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+5,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0
+EMPTY,X,0

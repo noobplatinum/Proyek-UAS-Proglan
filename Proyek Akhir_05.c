@@ -4,7 +4,7 @@
 // 1. Adi Nugroho (2306208546)
 // 2. Jesaya David Gamalael N P (2306161965)
 // 14 Mei 2024
-// Versi 0.4 - Ubah Ukuran Hotel (Increase / Decrease)
+// Versi 0.6 - Penambahan dan Pengurangan Jenis Kamar
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1169,7 +1169,6 @@ void roomchanger(struct floor *head, struct roomtype *headtype)
             temp->next = newtype;
         }
     }
-    printf("Room types have been updated!\n");
 
     int typecounter = 0, i, j;
     struct roomtype *temptype;
@@ -1183,7 +1182,6 @@ void roomchanger(struct floor *head, struct roomtype *headtype)
 
     //Then, update the room types in the rooms linked list for each floor (empty the hotel first)
     emptyhotel(head);
-    printf("Hotel has been emptied!\n");
 
     //Then, update the room types in the rooms linked list for each floor
     struct floor *tempfloor = head;
@@ -1208,7 +1206,6 @@ void roomchanger(struct floor *head, struct roomtype *headtype)
         }
         tempfloor = tempfloor->next;
     }
-    printf("Room types have been updated!\n");
 
     //Lastly, update the roomdata.txt file with the new room types
     FILE *file2 = fopen("roomdata.txt", "w");
@@ -1244,5 +1241,94 @@ void roomchanger(struct floor *head, struct roomtype *headtype)
         tempfloor = tempfloor->next;
     }
     fclose(file2);
-    printf("Room types have been updated!\n\n\n");
+}
+
+void newroomtype(struct roomtype **head, char type[20], int price, int maxguests)
+{
+    //This function will add a new room type to the room type linked list and update the roomtype.txt file accordingly
+    struct roomtype *newtype = (struct roomtype *)malloc(sizeof(struct roomtype));
+    strcpy(newtype->type, type);
+    newtype->price = price;
+    newtype->maxguests = maxguests;
+    newtype->amount = 0;
+    newtype->next = NULL;
+    if(*head == NULL)
+    {
+        *head = newtype;
+    }
+    else
+    {
+        struct roomtype *temp = *head;
+        while(temp->next != NULL)
+        {
+            temp = temp->next;
+        }
+        temp->next = newtype;
+    }
+
+    FILE *file = fopen("roomtype.txt", "a");
+    if(file == NULL)
+    {
+        printf("File tidak ditemukan!\n");
+        return;
+    }
+    fprintf(file, "%s,%d,%d,0\n", type, price, maxguests);
+    fclose(file);
+}
+
+void removeroomtype(struct roomtype **head, char type[20])
+{
+    struct roomtype *temptype = *head;
+    struct roomtype *prev = NULL;
+
+    // Traverse the linked list to find the room type to remove
+    while (temptype != NULL)
+    {
+        if (strcasecmp(temptype->type, type) == 0)
+        {
+            if (temptype->amount > 0)
+            {
+                printf("Room type %s has rooms in the hotel. Please empty the rooms first before removing the room type.\n", type);
+                return;
+            }
+            else
+            {
+                printf("Room found!\n");
+                if (prev == NULL)  // This means we're at the head
+                {
+                    *head = temptype->next;
+                }
+                else
+                {
+                    prev->next = temptype->next;
+                }
+                free(temptype);
+                printf("Room freed!\n");
+                break;
+            }
+        }
+        prev = temptype;
+        temptype = temptype->next;
+    }
+
+    if (temptype == NULL)
+    {
+        printf("Room type %s not found!\n", type);
+        return;
+    }
+
+    // Update the roomtype.txt file with the new room types
+    FILE *file = fopen("roomtype.txt", "w");
+    if (file == NULL)
+    {
+        printf("File tidak ditemukan!\n");
+        return;
+    }
+    temptype = *head;
+    while (temptype != NULL)
+    {
+        fprintf(file, "%s,%d,%d\n", temptype->type, temptype->price, temptype->maxguests);
+        temptype = temptype->next;
+    }
+    fclose(file);
 }
