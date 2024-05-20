@@ -1120,3 +1120,129 @@ void decreasesize(struct floor **head, int *floor, int *room, struct roomtype *h
 
     fclose(file3);
 }
+
+void roomchanger(struct floor *head, struct roomtype *headtype)
+{
+    // This function's purpose is to change the structure of the rooms in the hotel
+
+    //First, update the roomtype linked list using roomtype.txt data
+    //This function updates the roomtype linked list in case a new room type is added or an existing room type is removed
+    FILE *file = fopen("roomtype.txt", "r");
+    if(file == NULL)
+    {
+        printf("File tidak ditemukan!\n");
+        return;
+    }
+
+    //empty the roomtype linked list and read the roomtype.txt file to update the linked list
+    struct roomtype *temp = headtype;
+    while(temp != NULL)
+    {
+        struct roomtype *temp2 = temp;
+        temp = temp->next;
+        free(temp2);
+    }
+    headtype = NULL;
+
+    char type[20];
+    int price, maxguests, amount;
+    while(fscanf(file, "%[^,],%d,%d,%d\n", type, &price, &maxguests, &amount) != EOF)
+    {
+        struct roomtype *newtype = (struct roomtype *)malloc(sizeof(struct roomtype));
+        strcpy(newtype->type, type);
+        newtype->price = price;
+        newtype->maxguests = maxguests;
+        newtype->amount = amount;
+        newtype->next = NULL;
+
+        if(headtype == NULL)
+        {
+            headtype = newtype;
+        }
+        else
+        {
+            struct roomtype *temp = headtype;
+            while(temp->next != NULL)
+            {
+                temp = temp->next;
+            }
+            temp->next = newtype;
+        }
+    }
+    printf("Room types have been updated!\n");
+
+    int typecounter = 0, i, j;
+    struct roomtype *temptype;
+    temptype = headtype;
+    while(temptype != NULL)
+    {
+        typecounter++;
+        printf("Type: %s, Price: %d, Max guests: %d, Amount: %d\n", temptype->type, temptype->price, temptype->maxguests, temptype->amount);
+        temptype = temptype->next;
+    }
+
+    //Then, update the room types in the rooms linked list for each floor (empty the hotel first)
+    emptyhotel(head);
+    printf("Hotel has been emptied!\n");
+
+    //Then, update the room types in the rooms linked list for each floor
+    struct floor *tempfloor = head;
+    while(tempfloor != NULL)
+    {
+        struct room *temproom = tempfloor->headroom;
+        temptype = headtype;
+        //the roomtype list will have the amount of each room type in a floor
+        for(i = 0; i < typecounter; i++)
+        {
+            for(j = 0; j < temptype->amount; j++)
+            {
+                strcpy(temproom->type, temptype->type);
+                temproom->maxguests = temptype->maxguests;
+                temproom->price = temptype->price;
+                temproom->days = 0;
+                temproom->guests = NULL;
+                strcpy(temproom->status, "Kosong");
+                temproom = temproom->next;
+            }
+            temptype = temptype->next;
+        }
+        tempfloor = tempfloor->next;
+    }
+    printf("Room types have been updated!\n");
+
+    //Lastly, update the roomdata.txt file with the new room types
+    FILE *file2 = fopen("roomdata.txt", "w");
+    if(file2 == NULL)
+    {
+        printf("File tidak ditemukan!\n");
+        return;
+    }
+
+    tempfloor = head;
+    while(tempfloor != NULL)
+    {
+        struct room *temproom = tempfloor->headroom;
+        while(temproom != NULL)
+        {
+            fprintf(file2, "%d,0\n", temproom->maxguests, temproom->days);
+            if(temproom->guests != NULL) // Check if guests is not NULL
+            {
+                for(int i = 0; i < temproom->maxguests; i++)
+                {
+                    fprintf(file2, "%s,%c,%d\n", temproom->guests[i].name, temproom->guests[i].gender, temproom->guests[i].age);
+                }
+            }
+            else
+            {
+                for(int i = 0; i < temproom->maxguests; i++)
+                {
+                    fprintf(file2, "EMPTY,X,0\n");
+                }
+            }
+            temproom = temproom->next;
+        }
+        tempfloor = tempfloor->next;
+    }
+    fclose(file2);
+    printf("Room types have been updated!\n\n\n");
+}
