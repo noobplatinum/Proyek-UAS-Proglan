@@ -4,7 +4,7 @@
 // 1. Adi Nugroho (2306208546)
 // 2. Jesaya David Gamalael N P (2306161965)
 // 14 Mei 2024
-// Versi 0.6 - Penambahan dan Pengurangan Jenis Kamar
+// Versi 0.8 - Full Version - Non-Parallel
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -58,7 +58,7 @@ int menuubahlantai(int *floor);
 int menuubahkamar(int *room);
 void menutamu(int totalguests, int guestgender[2], int gueststatus[4]);
 void menukeuangan(int dailyprofit, int totalprofit, int maxdays, struct roomtype *headtype, int totaltypes);
-void menurestructure(struct roomtype *headtype, int room, int totaltypes, struct floor *head);
+void menurestructure(struct roomtype **headtype, int room, int totaltypes, struct floor *head);
 void adminmenu(struct floor *head);
 void statreader(struct floor *head, int *totalguests, int *longestrent, int *availablerooms, long long int *totalprofit, long int *dailyprofit, int *totaltypes, struct roomtype *headtype, int guestgender[2], int gueststatus[4]);
 void initfloor(struct floor **head, int floor, int room);
@@ -75,8 +75,8 @@ void print_hotel(int floors, int rooms);
 void increasefloorsize(struct floor **head, int floor, int *room, struct roomtype *headtype, int newroom);
 void increasehotelsize(struct floor **head, int *floor, int *room, int newfloor, struct roomtype *headtype);
 void decreasesize(struct floor **head, int *floor, int *room, struct roomtype *headtype, int newroom, int newfloor);
-void roomchanger(struct floor *head, struct roomtype *headtype);
-void menunewtype(struct roomtype *headtype);
+void roomchanger(struct floor *head, struct roomtype **headtype);
+void menunewtype(struct roomtype **headtype);
 void newroomtype(struct roomtype **head, char type[20], int price, int maxguests);
 void menuremovetype(struct roomtype *head);
 void removeroomtype(struct roomtype **head, char type[20]);
@@ -265,14 +265,14 @@ int main(void)
                 {
                     case 1:
                         system("cls");
-                        menurestructure(headtype, room, totaltypes, head);
+                        menurestructure(&headtype, room, totaltypes, head);
                         system("pause");
                         system("cls");
                         break;
 
                     case 2:
                         system("cls");
-                        menunewtype(headtype);
+                        menunewtype(&headtype);
                         system("pause");
                         system("cls");
                         break;
@@ -660,7 +660,7 @@ void menukeuangan(int dailyprofit, int totalprofit, int maxdays, struct roomtype
     printf("| Masukkan Pilihan Anda: ");
 }
 
-void menurestructure(struct roomtype *headtype, int room, int totaltypes, struct floor *head)
+void menurestructure(struct roomtype **headtype, int room, int totaltypes, struct floor *head)
 {
     printf("||_________________________________________________________||\n");
     printf("+-----------------------------------------------------------+\n");
@@ -670,7 +670,7 @@ void menurestructure(struct roomtype *headtype, int room, int totaltypes, struct
     printf("| Pengubahan Struktur - = - = - = - = - = - = - = - = - = - |\n");
     printf("+-----------------------------------------------------------+\n");
     printf("|    Nama Kelas    |   Harga / Malam   | Jumlah | Max Guest |\n");
-    struct roomtype *temp = headtype;
+    struct roomtype *temp = *headtype;
     int i;
     while(temp != NULL)
     {
@@ -685,7 +685,7 @@ void menurestructure(struct roomtype *headtype, int room, int totaltypes, struct
     do
     {    
         totalroom = 0;
-        temp = headtype;
+        temp = *headtype;
         for(i = 0; i < totaltypes; i++)
         {
             printf("| Jumlah Kamar Kelas %s: ", temp->type);
@@ -720,7 +720,7 @@ void menurestructure(struct roomtype *headtype, int room, int totaltypes, struct
         return;
     }
 
-    temp = headtype;
+    temp = *headtype;
     while(temp != NULL)
     {
         fprintf(file, "%s,%d,%d,%d\n", temp->type, temp->price, temp->maxguests, temp->amount);
@@ -751,8 +751,9 @@ void adminmenu(struct floor *head)
             if(strcmp(temp2->status, "Kosong") == 0)
             {
                 printf("| Ruang No - %-6d | Kelas %-19s | Lantai %-2d |\n", temp2->number, temp2->type, temp->number);
+                printf("|-----------------------------------------------------------|\n");
                 printf("| Harga / Malam: Rp.%-16d | Kapasitas Kamar: %-3d |\n", temp2->price, temp2->maxguests);
-                printf("+-----------------------------------------------------------+\n");
+                printf("+===========================================================+\n");
                 hotelfull = 0;
             }
             temp2 = temp2->next;
@@ -952,7 +953,7 @@ void initroom(struct floor *head, int floor, int room, struct roomtype *headtype
             for(j = 0; j < temptype->amount; j++)
             {
                 struct room *newroom = (struct room *)malloc(sizeof(struct room));
-                newroom->number = roomnumber;
+                newroom->number = temp->number * 1000 + roomnumber;
                 strcpy(newroom->type, temptype->type);
                 strcpy(newroom->status, "Kosong");
                 newroom->days = 0;
@@ -1023,10 +1024,10 @@ void initguest(int floor, int room, struct floor *head, struct room *headroom, s
                         case 1 ... 12:
                             strcpy(guests[i].status, "Anak");
                             break;
-                        case 13 ... 20:
+                        case 13 ... 19:
                             strcpy(guests[i].status, "Remaja");
                             break;
-                        case 21 ... 50:
+                        case 20 ... 50:
                             strcpy(guests[i].status, "Dewasa");
                             break;
                         case 51 ... 100:
@@ -1663,78 +1664,61 @@ void decreasesize(struct floor **head, int *floor, int *room, struct roomtype *h
     fclose(file3);
 }
 
-void roomchanger(struct floor *head, struct roomtype *headtype)
+void roomchanger(struct floor *head, struct roomtype **headtype) 
 {
-    // This function's purpose is to change the structure of the rooms in the hotel
-
-    //First, update the roomtype linked list using roomtype.txt data
-    //This function updates the roomtype linked list in case a new room type is added or an existing room type is removed
-    FILE *file = fopen("roomtype.txt", "r");
-    if(file == NULL)
-    {
-        printf("File tidak ditemukan!\n");
-        return;
-    }
-
-    //empty the roomtype linked list and read the roomtype.txt file to update the linked list
-    struct roomtype *temp = headtype;
-    while(temp != NULL)
-    {
-        struct roomtype *temp2 = temp;
-        temp = temp->next;
-        free(temp2);
-    }
-    headtype = NULL;
-
-    char type[20];
-    int price, maxguests, amount;
-    while(fscanf(file, "%[^,],%d,%d,%d\n", type, &price, &maxguests, &amount) != EOF)
-    {
-        struct roomtype *newtype = (struct roomtype *)malloc(sizeof(struct roomtype));
-        strcpy(newtype->type, type);
-        newtype->price = price;
-        newtype->maxguests = maxguests;
-        newtype->amount = amount;
-        newtype->next = NULL;
-
-        if(headtype == NULL)
-        {
-            headtype = newtype;
-        }
-        else
-        {
-            struct roomtype *temp = headtype;
-            while(temp->next != NULL)
-            {
-                temp = temp->next;
-            }
-            temp->next = newtype;
-        }
-    }
-
     int typecounter = 0, i, j;
-    struct roomtype *temptype;
-    temptype = headtype;
-    while(temptype != NULL)
+    struct roomtype *temptype = *headtype;
+    while (temptype != NULL) 
     {
         typecounter++;
         temptype = temptype->next;
     }
 
-    //Then, update the room types in the rooms linked list for each floor (empty the hotel first)
+    // Empty the hotel
     emptyhotel(head);
 
-    //Then, update the room types in the rooms linked list for each floor
+    // Update the room types in the rooms linked list for each floor
     struct floor *tempfloor = head;
-    while(tempfloor != NULL)
+    while (tempfloor != NULL) 
     {
         struct room *temproom = tempfloor->headroom;
-        temptype = headtype;
-        //the roomtype list will have the amount of each room type in a floor
-        for(i = 0; i < typecounter; i++)
+        temptype = *headtype;
+        for (i = 0; i < typecounter; i++) 
         {
-            for(j = 0; j < temptype->amount; j++)
+            for (j = 0; j < temptype->amount; j++) 
             {
+                if (temproom == NULL) 
+                {
+                    //If temproom is NULL, it means the room linked list is shorter than the room type amount. So, add new rooms
+                    struct room *newroom = (struct room *)malloc(sizeof(struct room));
+                    if (newroom == NULL) 
+                    {
+                        printf("Memory allocation error!\n");
+                        return;
+                    }
+                    newroom->number = tempfloor->number * 1000 + (i * j) + 1;
+                    strcpy(newroom->type, temptype->type);
+                    newroom->maxguests = temptype->maxguests;
+                    newroom->price = temptype->price;
+                    newroom->days = 0;
+                    newroom->guests = NULL;
+                    strcpy(newroom->status, "Kosong");
+                    newroom->next = NULL;
+                    //Now, add the new room to the linked list
+                    if (tempfloor->headroom == NULL) 
+                    {
+                        tempfloor->headroom = newroom;
+                    } 
+                    else 
+                    {
+                        struct room *temp2 = tempfloor->headroom;
+                        while (temp2->next != NULL) 
+                        {
+                            temp2 = temp2->next;
+                        }
+                        temp2->next = newroom;
+                    }
+                }
                 strcpy(temproom->type, temptype->type);
                 temproom->maxguests = temptype->maxguests;
                 temproom->price = temptype->price;
@@ -1748,31 +1732,31 @@ void roomchanger(struct floor *head, struct roomtype *headtype)
         tempfloor = tempfloor->next;
     }
 
-    //Lastly, update the roomdata.txt file with the new room types
+    // Update the roomdata.txt file with the new room types
     FILE *file2 = fopen("roomdata.txt", "w");
-    if(file2 == NULL)
+    if (file2 == NULL) 
     {
         printf("File tidak ditemukan!\n");
         return;
     }
 
     tempfloor = head;
-    while(tempfloor != NULL)
+    while (tempfloor != NULL) 
     {
         struct room *temproom = tempfloor->headroom;
-        while(temproom != NULL)
+        while (temproom != NULL) 
         {
-            fprintf(file2, "%d,0\n", temproom->maxguests, temproom->days);
-            if(temproom->guests != NULL) // Check if guests is not NULL
+            fprintf(file2, "%d,%d\n", temproom->maxguests, temproom->days);
+            if (temproom->guests != NULL) 
             {
-                for(int i = 0; i < temproom->maxguests; i++)
+                for (i = 0; i < temproom->maxguests; i++) 
                 {
                     fprintf(file2, "%s,%c,%d\n", temproom->guests[i].name, temproom->guests[i].gender, temproom->guests[i].age);
                 }
-            }
-            else
+            } 
+            else 
             {
-                for(int i = 0; i < temproom->maxguests; i++)
+                for (i = 0; i < temproom->maxguests; i++) 
                 {
                     fprintf(file2, "EMPTY,X,0\n");
                 }
@@ -1784,7 +1768,7 @@ void roomchanger(struct floor *head, struct roomtype *headtype)
     fclose(file2);
 }
 
-void menunewtype(struct roomtype *headtype)
+void menunewtype(struct roomtype **headtype)
 {
     printf("||_________________________________________________________||\n");
     printf("+-----------------------------------------------------------+\n");
@@ -1796,7 +1780,7 @@ void menunewtype(struct roomtype *headtype)
     printf("| Masukkan Name Jenis Kamar Baru: ");
     char type[40];
     scanf(" %[^\n]", type);
-    printf("| Masukkan Harga Sewa Kamar / Malam: Rp");
+    printf("| Masukkan Harga Sewa Kamar / Malam: ");
     int price;
     scanf("%d", &price);
     printf("| Masukkan Kapasitas Maksimum Tamu: ");
@@ -1805,7 +1789,7 @@ void menunewtype(struct roomtype *headtype)
     printf("+-----------------------------------------------------------+\n");
     printf("| Jenis Kamar Berhasil Ditambahkan!                         |\n");
     printf("+-----------------------------------------------------------+\n");
-    newroomtype(&headtype, type, price, maxguests);
+    newroomtype(headtype, type, price, maxguests);
 }
 
 void newroomtype(struct roomtype **head, char type[20], int price, int maxguests)
@@ -1883,6 +1867,9 @@ void menuremovetype(struct roomtype *head)
 
     } while (typeflag == 0);
     
+    printf("+-----------------------------------------------------------+\n");
+    printf("| Jenis Kamar Berhasil Dihapus!                             |\n");
+    printf("+-----------------------------------------------------------+\n");
     removeroomtype(&head, type);
 }
 
@@ -1898,13 +1885,12 @@ void removeroomtype(struct roomtype **head, char type[20])
         {
             if (temptype->amount > 0)
             {
-                printf("+-----------------------------------------------------------+\n");
-                printf("| Tolong kosongkan jenis ruangan ini sebelum menghapus!     |\n");
-                printf("+-----------------------------------------------------------+\n");
+                printf("Room type %s has rooms in the hotel. Please empty the rooms first before removing the room type.\n", type);
                 return;
             }
             else
             {
+                printf("Room found!\n");
                 if (prev == NULL)  // This means we're at the head
                 {
                     *head = temptype->next;
@@ -1914,9 +1900,7 @@ void removeroomtype(struct roomtype **head, char type[20])
                     prev->next = temptype->next;
                 }
                 free(temptype);
-                printf("+-----------------------------------------------------------+\n");
-                printf("| Jenis ruang telah berhasil dihapus!                       |\n");
-                printf("+-----------------------------------------------------------+\n");
+                printf("Room freed!\n");
                 break;
             }
         }
@@ -2037,6 +2021,7 @@ void registration(struct floor *head, int roomnumber)
 
         room->guests = guests;
         strcpy(room->status, "Terisi");
+        printf("+-----------------------------------------------------------+\n");
         printf("| Durasi Sewa (Hari): ");
         scanf("%d", &room->days);
         printf("+-----------------------------------------------------------+\n");
@@ -2112,7 +2097,7 @@ void searchguest(struct floor *head, struct roomtype *headtype)
 
         if(flag < 1 || flag > 4)
         {
-            printf(" Kategori tidak valid!\n| Masukkan kategori pencarian: ");
+            printf("| Kategori tidak valid!\n| Masukkan kategori pencarian: ");
         }
     } while (flag < 1 || flag > 4);
 
@@ -2125,6 +2110,7 @@ void searchguest(struct floor *head, struct roomtype *headtype)
         
         while(temp != NULL)
         {
+            int floorflag = 0;
             temproom = temp->headroom;
             while(temproom != NULL)
             {
@@ -2147,21 +2133,21 @@ void searchguest(struct floor *head, struct roomtype *headtype)
                             }
                             printf("| Nama Tamu: %-25s | Ruang Tamu: %-6d |\n", temproom->guests[i].name, temproom->number);
                             found = 1;
+                            floorflag = 1;
                         }
                     }
                 }
                 temproom = temproom->next;
             }
             temp = temp->next;
-            printf("+-----------------------------------------------------------+\n");
+            if(floorflag == 1)
+            {printf("+-----------------------------------------------------------+\n");}
         }
         if(found == 0)
         {
             printf("| Tamu tidak ditemukan!                                     |\n");
             printf("+-----------------------------------------------------------+\n");
         }
-        system("pause");
-        system("cls");
     }
 
     else if(flag == 2 || flag == 3 || flag == 4)
@@ -2180,13 +2166,14 @@ void searchguest(struct floor *head, struct roomtype *headtype)
 
                     if(searchgender != 'L' && searchgender != 'W' && searchgender != 'l' && searchgender != 'w')
                     {
-                        printf(" Kategori tidak valid!\n| Masukkan kategori pencarian: ");
+                        printf("| Kategori tidak valid!\n| Masukkan kategori pencarian: ");
                     }
                 } while (searchgender != 'L' && searchgender != 'W' && searchgender != 'l' && searchgender != 'w');
                 
                 temp = head;
                 while(temp != NULL)
                 {
+                    int floorflag = 0;
                     temproom = temp->headroom;
                     while(temproom != NULL)
                     {
@@ -2210,15 +2197,14 @@ void searchguest(struct floor *head, struct roomtype *headtype)
                         temproom = temproom->next;
                     }
                     temp = temp->next;
-                    printf("+-----------------------------------------------------------+\n");
+                    if(floorflag == 1)
+                    {printf("+-----------------------------------------------------------+\n");}
                 }
                 if(found == 0)
                 {
                     printf("| Tamu tidak ditemukan!                                     |\n");
                     printf("+-----------------------------------------------------------+\n");
                 }
-                system("pause");
-                system("cls");
                 break;
             }
 
@@ -2234,12 +2220,13 @@ void searchguest(struct floor *head, struct roomtype *headtype)
 
                     if(searchage < 0 || searchage > 100)
                     {
-                        printf(" Kategori tidak valid!\n| Masukkan kategori pencarian: ");
+                        printf("| Kategori tidak valid!\n| Masukkan kategori pencarian: ");
                     }
                 } while (searchage < 0 || searchage > 100);
                 temp = head;
                 while(temp != NULL)
                 {
+                    int floorflag = 0;
                     temproom = temp->headroom;
                     while(temproom != NULL)
                     {
@@ -2263,15 +2250,14 @@ void searchguest(struct floor *head, struct roomtype *headtype)
                         temproom = temproom->next;
                     }
                     temp = temp->next;
-                    printf("+-----------------------------------------------------------+\n");
+                    if(floorflag == 1)
+                    {printf("+-----------------------------------------------------------+\n");}
                 }
                 if(found == 0)
                 {
                     printf("| Tamu tidak ditemukan!                                     |\n");
                     printf("+-----------------------------------------------------------+\n");
                 }
-                system("pause");
-                system("cls");
                 break;
             }
 
@@ -2287,13 +2273,14 @@ void searchguest(struct floor *head, struct roomtype *headtype)
 
                     if(strcasecmp(searchstatus, "Anak") != 0 && strcasecmp(searchstatus, "Remaja") != 0 && strcasecmp(searchstatus, "Dewasa") != 0 && strcasecmp(searchstatus, "Lansia") != 0)
                     {
-                        printf(" Kategori tidak valid!\n| Masukkan kategori pencarian: ");
+                        printf("| Kategori tidak valid!\n| Masukkan kategori pencarian: ");
                     }
                 } while (strcasecmp(searchstatus, "Anak") != 0 && strcasecmp(searchstatus, "Remaja") != 0 && strcasecmp(searchstatus, "Dewasa") != 0 && strcasecmp(searchstatus, "Lansia") != 0);
                 
                 temp = head;
                 while(temp != NULL)
                 {
+                    int floorflag = 0;
                     temproom = temp->headroom;
                     while(temproom != NULL)
                     {
@@ -2317,7 +2304,8 @@ void searchguest(struct floor *head, struct roomtype *headtype)
                         temproom = temproom->next;
                     }
                     temp = temp->next;
-                    printf("+-----------------------------------------------------------+\n");
+                    if(floorflag == 1)
+                    {printf("+-----------------------------------------------------------+\n");}
                 }
                 if(found == 0)
                 {
@@ -2325,8 +2313,6 @@ void searchguest(struct floor *head, struct roomtype *headtype)
                     printf("+-----------------------------------------------------------+\n");
                     
                 }
-                system("pause");
-                system("cls");
                 break;
             }
         }
@@ -2408,6 +2394,4 @@ void guestviewer(struct floor *head)
     printf("+-----------------------------------------------------------+\n");
     printf("| Ruangan tidak ditemukan!                                  |\n");
     printf("+-----------------------------------------------------------+\n");
-    system("pause");
-    system("cls");
 }
