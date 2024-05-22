@@ -4,7 +4,7 @@
 // 1. Adi Nugroho (2306208546)
 // 2. Jesaya David Gamalael N P (2306161965)
 // 14 Mei 2024
-// Versi 0.8 - Full Version - Non-Parallel
+// Versi 1 - Full Version
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -804,90 +804,97 @@ void adminmenu(struct floor *head)
 
 void statreader(struct floor *head, int *totalguests, int *longestrent, int *availablerooms, long long int *totalprofit, long int *dailyprofit, int *totaltypes, struct roomtype *headtype, int guestgender[2], int gueststatus[4])
 {
-    //This function's purpose is to read through the hotel and get the amount of guests currently residing in the hotel
-    //The function will also get the longest renting period of the guests and the amount of available rooms
-    struct floor *temp = head;
     *totalprofit = 0;
     *totaltypes = 0;
     *availablerooms = 0;
     *longestrent = 0;
     *totalguests = 0;
     *dailyprofit = 0;
+    guestgender[0] = guestgender[1] = 0;
+    gueststatus[0] = gueststatus[1] = gueststatus[2] = gueststatus[3] = 0;
 
-    for(int i = 0; i < 2; i++)
-    {
-        guestgender[i] = 0;
-    }
-    for(int i = 0; i < 4; i++)
-    {
-        gueststatus[i] = 0;
-    }
+    long long int newtotalprofit = 0;
+    int newavailablerooms = 0;
+    int newlongestrent = 0;
+    int newtotalguests = 0;
+    long int newdailyprofit = 0;
 
-    //First, get the total amount of room types
+    // Calculate total room types
     struct roomtype *temptype = headtype;
-    while(temptype != NULL)
+    while (temptype != NULL)
     {
-        *totaltypes += 1;
+        (*totaltypes)++;
         temptype = temptype->next;
     }
 
-    while(temp != NULL)
+    // Convert the linked list to an array
+    struct floor *temp = head;
+    int totalRooms = 0;
+    while (temp != NULL)
     {
-        struct room *temp2 = temp->headroom;
-        while(temp2 != NULL)
+        struct room *temproom = temp->headroom;
+        while (temproom != NULL)
         {
-            if(strcmp(temp2->status, "Terisi") == 0)
-            {
-                //If the room is occupied, add the price of the room multiplied by the staying period to the total profit
-                *totalprofit += (temp2->price) * (temp2->days);
-                *dailyprofit += temp2->price;
-                //If the room is occupied, then add the amount of guests to the totalguests (don't count empty guests)
-                int i;
-                for(i = 0; i < temp2->maxguests; i++)
-                {
-                    if(strcmp(temp2->guests[i].name, "EMPTY") != 0)
-                    {
-                        *totalguests += 1;
-                        if(strcasecmp(temp2->guests[i].status, "Anak") == 0)
-                        {
-                            gueststatus[0] += 1;
-                        }
-                        else if(strcasecmp(temp2->guests[i].status, "Remaja") == 0)
-                        {
-                            gueststatus[1] += 1;
-                        }
-                        else if(strcasecmp(temp2->guests[i].status, "Dewasa") == 0)
-                        {
-                            gueststatus[2] += 1;
-                        }
-                        else if(strcasecmp(temp2->guests[i].status, "Lansia") == 0)
-                        {
-                            gueststatus[3] += 1;
-                        }
-
-                        if(temp2->guests[i].gender == 'L')
-                        {
-                            guestgender[0] += 1;
-                        }
-                        else if(temp2->guests[i].gender == 'W')
-                        {
-                            guestgender[1] += 1;
-                        }
-                    }
-                }
-                if(temp2->days > *longestrent)
-                {
-                    *longestrent = temp2->days;
-                }
-            }
-            else if(strcmp(temp2->status, "Kosong") == 0)
-            {
-                *availablerooms += 1;
-            }
-            temp2 = temp2->next;
+            totalRooms++;
+            temproom = temproom->next;
         }
         temp = temp->next;
     }
+
+    struct room **rooms = malloc(totalRooms * sizeof(struct room *));
+    temp = head;
+    int index = 0;
+    while (temp != NULL)
+    {
+        struct room *temproom = temp->headroom;
+        while (temproom != NULL)
+        {
+            rooms[index++] = temproom;
+            temproom = temproom->next;
+        }
+        temp = temp->next;
+    }
+
+    // Parallel processing with OpenMP
+    #pragma omp parallel for reduction(+:newtotalprofit, newdailyprofit, newtotalguests, newavailablerooms, guestgender[:2], gueststatus[:4]) reduction(max:newlongestrent)
+    for (int i = 0; i < totalRooms; i++)
+    {
+        struct room *temproom = rooms[i];
+        if (strcmp(temproom->status, "Terisi") == 0)
+        {
+            newtotalprofit += temproom->price * temproom->days;
+            newdailyprofit += temproom->price;
+
+            for (int j = 0; j < temproom->maxguests; j++)
+            {
+                if (strcmp(temproom->guests[j].name, "EMPTY") != 0)
+                {
+                    (newtotalguests)++;
+                    if (strcasecmp(temproom->guests[j].status, "Anak") == 0) gueststatus[0]++;
+                    else if (strcasecmp(temproom->guests[j].status, "Remaja") == 0) gueststatus[1]++;
+                    else if (strcasecmp(temproom->guests[j].status, "Dewasa") == 0) gueststatus[2]++;
+                    else if (strcasecmp(temproom->guests[j].status, "Lansia") == 0) gueststatus[3]++;
+
+                    if (temproom->guests[j].gender == 'L') guestgender[0]++;
+                    else if (temproom->guests[j].gender == 'W') guestgender[1]++;
+                }
+            }
+
+            if (temproom->days > newlongestrent) newlongestrent = temproom->days;
+        }
+        else if (strcmp(temproom->status, "Kosong") == 0)
+        {
+            (newavailablerooms)++;
+        }
+    }
+
+    free(rooms);
+    *totalprofit = newtotalprofit;
+    *dailyprofit = newdailyprofit;
+    *totalguests = newtotalguests;
+    *availablerooms = newavailablerooms;
+    *longestrent = newlongestrent;
+
 }
 
 void initfloor(struct floor **head, int floor, int room)
@@ -2066,15 +2073,13 @@ void registration(struct floor *head, int roomnumber)
 
 void searchguest(struct floor *head, struct roomtype *headtype)
 {
-    // This function will search for a guest in the hotel, based on the flag that the user inputs
-    // The user can search for a guest based on the room number, guest name, or guest status
     int flag;
     char nama[50];
     int found = 0;
     struct floor *temp = head;
     struct roomtype *temptype = headtype;
     struct room *temproom;
-    
+
     printf("||_________________________________________________________||\n");
     printf("+-----------------------------------------------------------+\n");
     printf("|                   Proyek UAS Kelompok 05                  |\n");
@@ -2101,49 +2106,96 @@ void searchguest(struct floor *head, struct roomtype *headtype)
         }
     } while (flag < 1 || flag > 4);
 
+    // Convert the linked list to an array for parallel processing
+    int totalRooms = 0;
+    temp = head;
+    while (temp != NULL)
+    {
+        temproom = temp->headroom;
+        while (temproom != NULL)
+        {
+            totalRooms++;
+            temproom = temproom->next;
+        }
+        temp = temp->next;
+    }
+
+    struct room **rooms = malloc(totalRooms * sizeof(struct room *));
+    temp = head;
+    int index = 0;
+    while (temp != NULL)
+    {
+        temproom = temp->headroom;
+        while (temproom != NULL)
+        {
+            rooms[index++] = temproom;
+            temproom = temproom->next;
+        }
+        temp = temp->next;
+    }
+
+    // Buffer for storing search results to avoid multiple prints in parallel
+    char (*results)[256] = malloc(totalRooms * sizeof(*results));
+    int results_count = 0;
+
     if(flag == 1)
     {
         printf("+-----------------------------------------------------------+\n");
         printf("| Masukkan Nama Tamu:                                       |\n");
         printf("+-----------------------------------------------------------+\n| ");
         scanf(" %[^\n]", nama);
-        
-        while(temp != NULL)
+
+        #pragma omp parallel
         {
-            int floorflag = 0;
-            temproom = temp->headroom;
-            while(temproom != NULL)
+            int local_results_count = 0;
+            char local_results[totalRooms][256];
+
+            #pragma omp for schedule(dynamic)
+            for (int i = 0; i < totalRooms; i++)
             {
-                if(strcmp(temproom->status, "Terisi") == 0)
+                temproom = rooms[i];
+                if (strcmp(temproom->status, "Terisi") == 0)
                 {
-                    for(int i = 0; i < temproom->maxguests; i++)
+                    for (int j = 0; j < temproom->maxguests; j++)
                     {
                         char tempname[50], tempnama[50];
-                        strcpy(tempname, temproom->guests[i].name);
+                        strcpy(tempname, temproom->guests[j].name);
                         strcpy(tempnama, nama);
                         strlwr(tempname);
                         strlwr(tempnama);
-                        if(strstr(tempname, tempnama) != NULL)
+                        if (strstr(tempname, tempnama) != NULL)
                         {
-                            if(found == 0)
-                            {
-                                printf("+-----------------------------------------------------------+\n");
-                                printf("| Tamu ditemukan!                                           |\n");
-                                printf("+-----------------------------------------------------------+\n");
-                            }
-                            printf("| Nama Tamu: %-25s | Ruang Tamu: %-6d |\n", temproom->guests[i].name, temproom->number);
-                            found = 1;
-                            floorflag = 1;
+                            snprintf(local_results[local_results_count++], 256, "| Nama Tamu: %-25s | Ruang Tamu: %-6d |\n", temproom->guests[j].name, temproom->number);
                         }
                     }
                 }
-                temproom = temproom->next;
             }
-            temp = temp->next;
-            if(floorflag == 1)
-            {printf("+-----------------------------------------------------------+\n");}
+
+            #pragma omp barrier
+
+            #pragma omp critical
+            {
+                for (int i = 0; i < local_results_count; i++)
+                {
+                    if (results_count < totalRooms) {
+                        strcpy(results[results_count++], local_results[i]);
+                    }
+                }
+            }
         }
-        if(found == 0)
+
+        if (results_count > 0)
+        {
+            printf("+-----------------------------------------------------------+\n");
+            printf("| Tamu ditemukan!                                           |\n");
+            printf("+-----------------------------------------------------------+\n");
+            for (int i = 0; i < results_count; i++)
+            {
+                printf("%s", results[i]);
+            }
+            printf("+-----------------------------------------------------------+\n");
+        }
+        else
         {
             printf("| Tamu tidak ditemukan!                                     |\n");
             printf("+-----------------------------------------------------------+\n");
@@ -2169,38 +2221,53 @@ void searchguest(struct floor *head, struct roomtype *headtype)
                         printf("| Kategori tidak valid!\n| Masukkan kategori pencarian: ");
                     }
                 } while (searchgender != 'L' && searchgender != 'W' && searchgender != 'l' && searchgender != 'w');
-                
-                temp = head;
-                while(temp != NULL)
+
+                #pragma omp parallel
                 {
-                    int floorflag = 0;
-                    temproom = temp->headroom;
-                    while(temproom != NULL)
+                    int local_results_count = 0;
+                    char local_results[totalRooms][256];
+
+                    #pragma omp for schedule(dynamic)
+                    for (int i = 0; i < totalRooms; i++)
                     {
-                        if(strcmp(temproom->status, "Terisi") == 0)
+                        temproom = rooms[i];
+                        if (strcmp(temproom->status, "Terisi") == 0)
                         {
-                            for(int i = 0; i < temproom->maxguests; i++)
+                            for (int j = 0; j < temproom->maxguests; j++)
                             {
-                                if(tolower(temproom->guests[i].gender) == tolower(searchgender))
+                                if (tolower(temproom->guests[j].gender) == tolower(searchgender))
                                 {
-                                    if(found == 0)
-                                    {
-                                        printf("+-----------------------------------------------------------+\n");
-                                        printf("| Tamu ditemukan!                                           |\n");
-                                        printf("+-----------------------------------------------------------+\n");
-                                    }
-                                    printf("| Nama Tamu: %-25s | Ruang Tamu: %-6d |\n", temproom->guests[i].name, temproom->number);
-                                    found = 1;
+                                    snprintf(local_results[local_results_count++], 256, "| Nama Tamu: %-25s | Ruang Tamu: %-6d |\n", temproom->guests[j].name, temproom->number);
                                 }
                             }
                         }
-                        temproom = temproom->next;
                     }
-                    temp = temp->next;
-                    if(floorflag == 1)
-                    {printf("+-----------------------------------------------------------+\n");}
+
+                    #pragma omp barrier
+
+                    #pragma omp critical
+                    {
+                        for (int i = 0; i < local_results_count; i++)
+                        {
+                            if (results_count < totalRooms) {
+                                strcpy(results[results_count++], local_results[i]);
+                            }
+                        }
+                    }
                 }
-                if(found == 0)
+
+                if (results_count > 0)
+                {
+                    printf("+-----------------------------------------------------------+\n");
+                    printf("| Tamu ditemukan!                                           |\n");
+                    printf("+-----------------------------------------------------------+\n");
+                    for (int i = 0; i < results_count; i++)
+                    {
+                        printf("%s", results[i]);
+                    }
+                    printf("+-----------------------------------------------------------+\n");
+                }
+                else
                 {
                     printf("| Tamu tidak ditemukan!                                     |\n");
                     printf("+-----------------------------------------------------------+\n");
@@ -2218,42 +2285,58 @@ void searchguest(struct floor *head, struct roomtype *headtype)
                 {
                     scanf("%d", &searchage);
 
-                    if(searchage < 0 || searchage > 100)
+                    if(searchage < 1 || searchage > 100) // Changed to valid age range (1-100)
                     {
                         printf("| Kategori tidak valid!\n| Masukkan kategori pencarian: ");
                     }
-                } while (searchage < 0 || searchage > 100);
-                temp = head;
-                while(temp != NULL)
+                } while (searchage < 1 || searchage > 100);
+
+                #pragma omp parallel
                 {
-                    int floorflag = 0;
-                    temproom = temp->headroom;
-                    while(temproom != NULL)
+                    int local_results_count = 0;
+                    char local_results[totalRooms][256];
+
+                    #pragma omp for schedule(dynamic)
+                    for (int i = 0; i < totalRooms; i++)
                     {
-                        if(strcmp(temproom->status, "Terisi") == 0)
+                        temproom = rooms[i];
+                        if (strcmp(temproom->status, "Terisi") == 0)
                         {
-                            for(int i = 0; i < temproom->maxguests; i++)
+                            for (int j = 0; j < temproom->maxguests; j++)
                             {
-                                if(temproom->guests[i].age == searchage)
+                                if (temproom->guests[j].age == searchage)
                                 {
-                                    if(found == 0)
-                                    {
-                                        printf("+-----------------------------------------------------------+\n");
-                                        printf("| Tamu ditemukan!                                           |\n");
-                                        printf("+-----------------------------------------------------------+\n");
-                                    }
-                                    printf("| Nama Tamu: %-25s | Ruang Tamu: %-6d |\n", temproom->guests[i].name, temproom->number);
-                                    found = 1;
+                                    snprintf(local_results[local_results_count++], 256, "| Nama Tamu: %-25s | Ruang Tamu: %-6d |\n", temproom->guests[j].name, temproom->number);
                                 }
                             }
                         }
-                        temproom = temproom->next;
                     }
-                    temp = temp->next;
-                    if(floorflag == 1)
-                    {printf("+-----------------------------------------------------------+\n");}
+
+                    #pragma omp barrier
+
+                    #pragma omp critical
+                    {
+                        for (int i = 0; i < local_results_count; i++)
+                        {
+                            if (results_count < totalRooms) {
+                                strcpy(results[results_count++], local_results[i]);
+                            }
+                        }
+                    }
                 }
-                if(found == 0)
+
+                if (results_count > 0)
+                {
+                    printf("+-----------------------------------------------------------+\n");
+                    printf("| Tamu ditemukan!                                           |\n");
+                    printf("+-----------------------------------------------------------+\n");
+                    for (int i = 0; i < results_count; i++)
+                    {
+                        printf("%s", results[i]);
+                    }
+                    printf("+-----------------------------------------------------------+\n");
+                }
+                else
                 {
                     printf("| Tamu tidak ditemukan!                                     |\n");
                     printf("+-----------------------------------------------------------+\n");
@@ -2276,47 +2359,64 @@ void searchguest(struct floor *head, struct roomtype *headtype)
                         printf("| Kategori tidak valid!\n| Masukkan kategori pencarian: ");
                     }
                 } while (strcasecmp(searchstatus, "Anak") != 0 && strcasecmp(searchstatus, "Remaja") != 0 && strcasecmp(searchstatus, "Dewasa") != 0 && strcasecmp(searchstatus, "Lansia") != 0);
-                
-                temp = head;
-                while(temp != NULL)
+
+                #pragma omp parallel
                 {
-                    int floorflag = 0;
-                    temproom = temp->headroom;
-                    while(temproom != NULL)
+                    int local_results_count = 0;
+                    char local_results[totalRooms][256];
+
+                    #pragma omp for schedule(dynamic)
+                    for (int i = 0; i < totalRooms; i++)
                     {
-                        if(strcmp(temproom->status, "Terisi") == 0)
+                        temproom = rooms[i];
+                        if (strcmp(temproom->status, "Terisi") == 0)
                         {
-                            for(int i = 0; i < temproom->maxguests; i++)
+                            for (int j = 0; j < temproom->maxguests; j++)
                             {
-                                if(strcasecmp(temproom->guests[i].status, searchstatus) == 0)
+                                if (strcasecmp(temproom->guests[j].status, searchstatus) == 0)
                                 {
-                                    if(found == 0)
-                                    {
-                                        printf("+-----------------------------------------------------------+\n");
-                                        printf("| Tamu ditemukan!                                           |\n");
-                                        printf("+-----------------------------------------------------------+\n");
-                                    }
-                                    printf("| Nama Tamu: %-25s | Ruang Tamu: %-6d |\n", temproom->guests[i].name, temproom->number);
-                                    found = 1;
+                                    snprintf(local_results[local_results_count++], 256, "| Nama Tamu: %-25s | Ruang Tamu: %-6d |\n", temproom->guests[j].name, temproom->number);
                                 }
                             }
                         }
-                        temproom = temproom->next;
                     }
-                    temp = temp->next;
-                    if(floorflag == 1)
-                    {printf("+-----------------------------------------------------------+\n");}
+
+                    #pragma omp barrier
+
+                    #pragma omp critical
+                    {
+                        for (int i = 0; i < local_results_count; i++)
+                        {
+                            if (results_count < totalRooms) {
+                                strcpy(results[results_count++], local_results[i]);
+                            }
+                        }
+                    }
                 }
-                if(found == 0)
+
+                if (results_count > 0)
+                {
+                    printf("+-----------------------------------------------------------+\n");
+                    printf("| Tamu ditemukan!                                           |\n");
+                    printf("+-----------------------------------------------------------+\n");
+                    for (int i = 0; i < results_count; i++)
+                    {
+                        printf("%s", results[i]);
+                    }
+                    printf("+-----------------------------------------------------------+\n");
+                }
+                else
                 {
                     printf("| Tamu tidak ditemukan!                                     |\n");
                     printf("+-----------------------------------------------------------+\n");
-                    
                 }
                 break;
             }
         }
-    }        
+    }
+
+    free(rooms);
+    free(results);
 }
 
 void statupdater(int *floors, int *rooms)
@@ -2332,10 +2432,10 @@ void statupdater(int *floors, int *rooms)
     fclose(file);
 }
 
-void guestviewer(struct floor *head)
+void guestviewer(struct floor *head) 
 {
-    //This function's purpose is to print the guests in a specific room
-    //The user will be asked to input the room number
+    // This function's purpose is to print the guests in a specific room
+    // The user will be asked to input the room number
     printf("||_________________________________________________________||\n");
     printf("+-----------------------------------------------------------+\n");
     printf("|                   Proyek UAS Kelompok 05                  |\n");
@@ -2343,55 +2443,68 @@ void guestviewer(struct floor *head)
     printf("+-----------------------------------------------------------+\n");
     printf("| Pencarian Tamu - = - = - = - = - = - = - = - = - = - = -  |\n");
     printf("+-----------------------------------------------------------+\n");
-    printf("| Masukkan Nomor Ruangan: ");
+    
     int roomnumber;
-    scanf("%d", &roomnumber);
-
-    //Travel each floor to find the room
-    struct floor *temp = head;
-    while(temp != NULL)
+    #pragma omp parallel
     {
-        struct room *temp2 = temp->headroom;
-        while(temp2 != NULL)
+        #pragma omp single
         {
-            if(temp2->number == roomnumber)
-            {
-                //Check if the room is empty
-                if(strcmp(temp2->status, "Kosong") == 0)
-                {
-                    printf("+-----------------------------------------------------------+\n");
-                    printf("| Ruangan Kosong!                                           |\n");
-                    printf("+-----------------------------------------------------------+\n");
-                    system("pause");
-                    system("cls");
-                    return;
-                }
-                else
-                {
-                    //Print the guests in the room
-                    printf("+-----------------------------------------------------------+\n");
-                    printf("| Data Ruangan %-44d |\n", roomnumber);
-                    printf("+-----------------------------------------------------------+\n");
-                    for(int i = 0; i < temp2->maxguests; i++)
+            printf("| Masukkan Nomor Ruangan: ");
+            scanf("%d", &roomnumber);
+        }
+    }
+
+    int room_found = 0;
+
+    #pragma omp parallel
+    {
+        #pragma omp single
+        {
+            struct floor *temp = head;
+            while (temp != NULL) {
+                struct room *temp2 = temp->headroom;
+                while (temp2 != NULL) {
+                    #pragma omp task firstprivate(temp2)
                     {
-                        if(strcmp(temp2->guests[i].name, "EMPTY") != 0)
-                        {
-                            printf("| Nama Tamu %-2d: %-43s |\n", i + 1, temp2->guests[i].name);
-                            printf("| Jenis Kelamin: %-42c |\n", temp2->guests[i].gender);
-                            printf("| Umur - Status: %-3d - %-36s |\n", temp2->guests[i].age, temp2->guests[i].status);
-                            printf("+-----------------------------------------------------------+\n");
+                        if (!room_found && temp2->number == roomnumber) {
+                            #pragma omp critical
+                            {
+                                if (!room_found) {
+                                    room_found = 1;
+                                    if (strcmp(temp2->status, "Kosong") == 0) {
+                                        printf("+-----------------------------------------------------------+\n");
+                                        printf("| Ruangan Kosong!                                           |\n");
+                                        printf("+-----------------------------------------------------------+\n");
+                                    } else {
+                                        printf("+-----------------------------------------------------------+\n");
+                                        printf("| Data Ruangan %-44d |\n", roomnumber);
+                                        printf("+-----------------------------------------------------------+\n");
+                                        for (int i = 0; i < temp2->maxguests; i++) {
+                                            if (strcmp(temp2->guests[i].name, "EMPTY") != 0) {
+                                                printf("| Nama Tamu %-2d: %-43s |\n", i + 1, temp2->guests[i].name);
+                                                printf("| Jenis Kelamin: %-42c |\n", temp2->guests[i].gender);
+                                                printf("| Umur - Status: %-3d - %-36s |\n", temp2->guests[i].age, temp2->guests[i].status);
+                                                printf("+-----------------------------------------------------------+\n");
+                                            }
+                                        }
+                                    }
+                                    system("pause");
+                                    system("cls");
+                                }
+                            }
                         }
                     }
-                    system("pause");
-                    system("cls");
-                    return;
+                    temp2 = temp2->next;
                 }
+                temp = temp->next;
             }
-            temp2 = temp2->next;
         }
-        temp = temp->next;
+        #pragma omp taskwait
     }
-    printf("+-----------------------------------------------------------+\n");
-    printf("| Ruangan tidak ditemukan!                                  |\n");
-    printf("+-----------------------------------------------------------+\n");
+
+    if (!room_found) {
+        printf("+-----------------------------------------------------------+\n");
+        printf("| Ruangan tidak ditemukan!                                  |\n");
+        printf("+-----------------------------------------------------------+\n");
+    }
 }
