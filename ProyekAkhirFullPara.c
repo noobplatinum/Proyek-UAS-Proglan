@@ -71,7 +71,7 @@ void helpstruktur(void);
 void helpkeuangan(void);
 void helptamu(void);
 void emptyhotel(struct floor *head);
-void print_hotel(int floors, int rooms);
+void print_hotel(struct floor head, int *floors);
 void increasefloorsize(struct floor **head, int floor, int *room, struct roomtype *headtype, int newroom);
 void increasehotelsize(struct floor **head, int *floor, int *room, int newfloor, struct roomtype *headtype);
 void decreasesize(struct floor **head, int *floor, int *room, struct roomtype *headtype, int newroom, int newfloor);
@@ -182,7 +182,7 @@ int main(void)
                 {
                     case 1:
                         system("cls");
-                        print_hotel(floor, room);
+                        print_hotel(*head, &floor);
                         system("pause");
                         system("cls");
                         break;
@@ -1133,8 +1133,9 @@ void helptamu(void)
     printf("+-----------------------------------------------------------+\n");
 }
 
-void print_hotel(int floors, int rooms) 
+void print_hotel(struct floor head, int *floors) 
 {
+    int rooms = head.rooms;
     // Print base floor
     if(rooms % 2 != 0) 
     {
@@ -1164,7 +1165,7 @@ void print_hotel(int floors, int rooms)
     printf("+\n");
 
     // Print each floor
-    for (int i = 0; i < floors; i++) 
+    for (int i = 0; i < *floors; i++) 
     {
         // Print windows
         for (int j = 0; j < rooms / 2; j++) 
@@ -2177,7 +2178,8 @@ void searchguest(struct floor *head, struct roomtype *headtype)
             {
                 for (int i = 0; i < local_results_count; i++)
                 {
-                    if (results_count < totalRooms) {
+                    if (results_count < totalRooms) 
+                    {
                         strcpy(results[results_count++], local_results[i]);
                     }
                 }
@@ -2463,19 +2465,25 @@ void guestviewer(struct floor *head)
             struct floor *temp = head;
             while (temp != NULL) {
                 struct room *temp2 = temp->headroom;
-                while (temp2 != NULL) {
+                while (temp2 != NULL) 
+                {
                     #pragma omp task firstprivate(temp2)
                     {
-                        if (!room_found && temp2->number == roomnumber) {
+                        if (!room_found && temp2->number == roomnumber) 
+                        {
                             #pragma omp critical
                             {
-                                if (!room_found) {
+                                if (!room_found) 
+                                {
                                     room_found = 1;
-                                    if (strcmp(temp2->status, "Kosong") == 0) {
+                                    if (strcmp(temp2->status, "Kosong") == 0) 
+                                    {
                                         printf("+-----------------------------------------------------------+\n");
                                         printf("| Ruangan Kosong!                                           |\n");
                                         printf("+-----------------------------------------------------------+\n");
-                                    } else {
+                                    } 
+                                    else 
+                                    {
                                         printf("+-----------------------------------------------------------+\n");
                                         printf("| Data Ruangan %-44d |\n", roomnumber);
                                         printf("+-----------------------------------------------------------+\n");
