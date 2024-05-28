@@ -2513,7 +2513,6 @@ void statupdater(struct floor *head, int *floors, int *rooms)
         while(counter2 != NULL)
         {
             fprintf(file2, "%d,%d\n", counter2->maxguests, counter2->days);
-            printf("%d, ", counter2->number);
             for(int i = 0; i < counter2->maxguests; i++)
             {
                 if (strcmp(counter2->status, "Kosong") == 0)
