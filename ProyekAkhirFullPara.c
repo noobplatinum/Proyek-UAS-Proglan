@@ -2096,7 +2096,7 @@ void registration(struct floor *head, int roomnumber)
         printf("+-----------------------------------------------------------+\n");
         printf("| Durasi Sewa (Hari): ");
         scanf("%d", &room->days);
-        room->checkout = checkinTime + (room->days * 60); // add checkin time with days in seconds to get checkout time
+        room->checkout = checkinTime + (room->days * 24 * 3600); // add checkin time with days in seconds to get checkout time
         printf("+-----------------------------------------------------------+\n");
         printf("| Ruang Berhasil Disewa!                                    |\n");
         printf("+-----------------------------------------------------------+\n");
