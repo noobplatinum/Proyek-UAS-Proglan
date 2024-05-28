@@ -19,7 +19,9 @@ struct room
     int number;
     char type[20];
     char status[10];
+    time_t checkin;
     int days;
+    time_t checkout;
     int maxguests;
     int price;
     struct guest *guests;
@@ -71,7 +73,7 @@ void helpstruktur(void);
 void helpkeuangan(void);
 void helptamu(void);
 void emptyhotel(struct floor *head);
-void print_hotel(int floors, int rooms);
+void print_hotel(struct floor head, int *floors);
 void increasefloorsize(struct floor **head, int floor, int *room, struct roomtype *headtype, int newroom);
 void increasehotelsize(struct floor **head, int *floor, int *room, int newfloor, struct roomtype *headtype);
 void decreasesize(struct floor **head, int *floor, int *room, struct roomtype *headtype, int newroom, int newfloor);
@@ -82,7 +84,7 @@ void menuremovetype(struct roomtype *head);
 void removeroomtype(struct roomtype **head, char type[20]);
 void registration(struct floor *head, int roomnumber);
 void searchguest(struct floor *head, struct roomtype *headtype);
-void statupdater(int *floors, int *rooms);
+void statupdater(struct floor *head, int *floors, int *rooms);
 void guestviewer(struct floor *head);
 
 int main(void)
@@ -150,8 +152,10 @@ int main(void)
 
     do 
     {
-        statupdater(&floor, &room);
+        statupdater(head, &floor, &room);   // update: now this function can also update roomdata.txt with the latest room data
+        // update : now this function can also check whether the occupied rooms duration has begin or end
         statreader(head, &totalguests, &longestrent, &availablerooms, &totalprofit, &dailyprofit, &totaltypes, headtype, guestgender, gueststatus);
+        
         menu(); //memanggil fungsi menu
         do 
         {
@@ -182,7 +186,7 @@ int main(void)
                 {
                     case 1:
                         system("cls");
-                        print_hotel(floor, room);
+                        print_hotel(*head, &floor);
                         system("pause");
                         system("cls");
                         break;
@@ -860,7 +864,7 @@ void statreader(struct floor *head, int *totalguests, int *longestrent, int *ava
     for (int i = 0; i < totalRooms; i++)
     {
         struct room *temproom = rooms[i];
-        if (strcmp(temproom->status, "Terisi") == 0)
+        if (strcmp(temproom->status, "Terisi") == 0 || strcmp(temproom->status, "Dibooking") == 0)
         {
             newtotalprofit += temproom->price * temproom->days;
             newdailyprofit += temproom->price;
@@ -894,6 +898,39 @@ void statreader(struct floor *head, int *totalguests, int *longestrent, int *ava
     *totalguests = newtotalguests;
     *availablerooms = newavailablerooms;
     *longestrent = newlongestrent;
+
+    // check all rooms for checkin and checkout date
+    struct floor *counter = head;
+    while (counter != NULL)
+    {
+        struct room *roomcounter = counter->headroom;
+        while (roomcounter != NULL)
+        {
+            // if the checkout date has passed, set the room status to "Kosong"
+            if (roomcounter->checkout - time(NULL) <= 0 && roomcounter->checkout != 0)
+            {
+                strcpy(roomcounter->status, "Kosong");
+                roomcounter->checkin = 0;
+                roomcounter->checkout = 0;
+                roomcounter->days = 0;
+                for (int i = 0; i < roomcounter->maxguests; i++)
+                {
+                    strcpy(roomcounter->guests[i].name, "EMPTY");
+                    roomcounter->guests[i].gender = 'X';
+                    roomcounter->guests[i].age = 0;
+                    strcpy(roomcounter->guests[i].status, "Kosong");
+                }
+            }
+
+            // if the checkin date has passed and the checkout date has not passed, set the room status to "Terisi"
+            if (roomcounter->checkin - time(NULL) <= 0 && roomcounter->checkout - time(NULL) > 0 && roomcounter->checkin != 0) 
+            {
+                strcpy(roomcounter->status, "Terisi");
+            }
+            roomcounter = roomcounter->next;
+        }
+        counter = counter->next;
+    }
 
 }
 
@@ -963,6 +1000,8 @@ void initroom(struct floor *head, int floor, int room, struct roomtype *headtype
                 newroom->number = temp->number * 1000 + roomnumber;
                 strcpy(newroom->type, temptype->type);
                 strcpy(newroom->status, "Kosong");
+                newroom->checkin = 0;
+                newroom->checkout = 0;
                 newroom->days = 0;
                 newroom->maxguests = temptype->maxguests;
                 newroom->price = temptype->price;
@@ -1133,13 +1172,16 @@ void helptamu(void)
     printf("+-----------------------------------------------------------+\n");
 }
 
-void print_hotel(int floors, int rooms) 
+void print_hotel(struct floor head, int *floors) 
 {
+    int rooms = head.rooms;
     // Print base floor
     if(rooms % 2 != 0) 
     {
         rooms++;
     }
+    printf("%d\n", rooms);
+    printf("%d\n", *floors);
     
     printf("|");
     for (int i = 0; i < rooms* 3 - 1; i++) 
@@ -1164,7 +1206,7 @@ void print_hotel(int floors, int rooms)
     printf("+\n");
 
     // Print each floor
-    for (int i = 0; i < floors; i++) 
+    for (int i = 0; i < *floors; i++) 
     {
         // Print windows
         for (int j = 0; j < rooms / 2; j++) 
@@ -2028,9 +2070,33 @@ void registration(struct floor *head, int roomnumber)
 
         room->guests = guests;
         strcpy(room->status, "Terisi");
+
+        // ask for check-in time
+        struct tm timeinfo = {0};
+        time_t checkinTime;
+        printf("+-----------------------------------------------------------+\n");
+        do {
+            printf("| Tanggal Check-In (DD-MM-YYYY HH:MM): ");
+            scanf("%d-%d-%d %d:%d", &timeinfo.tm_mday, &timeinfo.tm_mon, &timeinfo.tm_year, &timeinfo.tm_hour, &timeinfo.tm_min);
+            timeinfo.tm_year -= 1900; // years since 1900
+            timeinfo.tm_mon -= 1; // months since January - [0,11]
+            timeinfo.tm_isdst = 0; // Daylight saving time is not in effect
+            checkinTime = mktime(&timeinfo);
+
+            if (checkinTime < time(NULL)) {
+                printf("| Tanggal Check-In tidak valid! Silahkan masukkan ulang...\n");
+            }
+            else if (checkinTime > time(NULL)) {
+                printf("test\n");
+                strcpy(room->status, "Dibooking");
+            }
+        } while (checkinTime < time(NULL));
+        room->checkin = checkinTime;
+
         printf("+-----------------------------------------------------------+\n");
         printf("| Durasi Sewa (Hari): ");
         scanf("%d", &room->days);
+        room->checkout = checkinTime + (room->days * 60); // add checkin time with days in seconds to get checkout time
         printf("+-----------------------------------------------------------+\n");
         printf("| Ruang Berhasil Disewa!                                    |\n");
         printf("+-----------------------------------------------------------+\n");
@@ -2154,7 +2220,7 @@ void searchguest(struct floor *head, struct roomtype *headtype)
             for (int i = 0; i < totalRooms; i++)
             {
                 temproom = rooms[i];
-                if (strcmp(temproom->status, "Terisi") == 0)
+                if (strcmp(temproom->status, "Terisi") == 0 || strcmp(temproom->status, "Dibooking") == 0)
                 {
                     for (int j = 0; j < temproom->maxguests; j++)
                     {
@@ -2177,7 +2243,8 @@ void searchguest(struct floor *head, struct roomtype *headtype)
             {
                 for (int i = 0; i < local_results_count; i++)
                 {
-                    if (results_count < totalRooms) {
+                    if (results_count < totalRooms) 
+                    {
                         strcpy(results[results_count++], local_results[i]);
                     }
                 }
@@ -2231,7 +2298,7 @@ void searchguest(struct floor *head, struct roomtype *headtype)
                     for (int i = 0; i < totalRooms; i++)
                     {
                         temproom = rooms[i];
-                        if (strcmp(temproom->status, "Terisi") == 0)
+                        if (strcmp(temproom->status, "Terisi") == 0 || strcmp(temproom->status, "Dibooking") == 0)
                         {
                             for (int j = 0; j < temproom->maxguests; j++)
                             {
@@ -2300,7 +2367,7 @@ void searchguest(struct floor *head, struct roomtype *headtype)
                     for (int i = 0; i < totalRooms; i++)
                     {
                         temproom = rooms[i];
-                        if (strcmp(temproom->status, "Terisi") == 0)
+                        if (strcmp(temproom->status, "Terisi") == 0 || strcmp(temproom->status, "Dibooking") == 0)
                         {
                             for (int j = 0; j < temproom->maxguests; j++)
                             {
@@ -2369,7 +2436,7 @@ void searchguest(struct floor *head, struct roomtype *headtype)
                     for (int i = 0; i < totalRooms; i++)
                     {
                         temproom = rooms[i];
-                        if (strcmp(temproom->status, "Terisi") == 0)
+                        if (strcmp(temproom->status, "Terisi") == 0 || strcmp(temproom->status, "Dibooking") == 0)
                         {
                             for (int j = 0; j < temproom->maxguests; j++)
                             {
@@ -2419,9 +2486,9 @@ void searchguest(struct floor *head, struct roomtype *headtype)
     free(results);
 }
 
-void statupdater(int *floors, int *rooms)
+void statupdater(struct floor *head, int *floors, int *rooms)
 {
-    //This function's purpose is to read structure.txt file and update the floors and rooms variables
+    //This function's purpose is to read structure.txt file and update the floors and rooms variables, and also update roomdata.txt
     FILE *file = fopen("structure.txt", "r");
     if(file == NULL)
     {
@@ -2430,6 +2497,38 @@ void statupdater(int *floors, int *rooms)
     }
     fscanf(file, "%d,%d", floors, rooms);
     fclose(file);
+
+    // Update roomdata.txt with the latest data
+    FILE *file2 = fopen("roomdata.txt", "w");
+    if(file2 == NULL)
+    {
+        printf("File tidak ditemukan!\n");
+        return;
+    }
+
+    struct floor *counter = head;
+    while(counter != NULL)
+    {
+        struct room *counter2 = counter->headroom;
+        while(counter2 != NULL)
+        {
+            fprintf(file2, "%d,%d\n", counter2->maxguests, counter2->days);
+            printf("%d, ", counter2->number);
+            for(int i = 0; i < counter2->maxguests; i++)
+            {
+                if (strcmp(counter2->status, "Kosong") == 0)
+                {
+                    fprintf(file2, "EMPTY,X,0\n");
+                }
+                else {
+                    fprintf(file2, "%s,%c,%d\n", counter2->guests[i].name, counter2->guests[i].gender, counter2->guests[i].age);
+                }
+            }
+            counter2 = counter2->next;
+        }
+        counter = counter->next;
+    }
+    fclose(file2);
 }
 
 void guestviewer(struct floor *head) 
@@ -2463,24 +2562,31 @@ void guestviewer(struct floor *head)
             struct floor *temp = head;
             while (temp != NULL) {
                 struct room *temp2 = temp->headroom;
-                while (temp2 != NULL) {
+                while (temp2 != NULL) 
+                {
                     #pragma omp task firstprivate(temp2)
                     {
-                        if (!room_found && temp2->number == roomnumber) {
+                        if (!room_found && temp2->number == roomnumber) 
+                        {
                             #pragma omp critical
                             {
-                                if (!room_found) {
+                                if (!room_found) 
+                                {
                                     room_found = 1;
-                                    if (strcmp(temp2->status, "Kosong") == 0) {
+                                    if (strcmp(temp2->status, "Kosong") == 0) 
+                                    {
                                         printf("+-----------------------------------------------------------+\n");
                                         printf("| Ruangan Kosong!                                           |\n");
                                         printf("+-----------------------------------------------------------+\n");
-                                    } else {
+                                    } 
+                                    else 
+                                    {
                                         printf("+-----------------------------------------------------------+\n");
                                         printf("| Data Ruangan %-44d |\n", roomnumber);
                                         printf("+-----------------------------------------------------------+\n");
                                         for (int i = 0; i < temp2->maxguests; i++) {
                                             if (strcmp(temp2->guests[i].name, "EMPTY") != 0) {
+                                                printf("| Status Ruangan: %-39s |\n", temp2->status);
                                                 printf("| Nama Tamu %-2d: %-43s |\n", i + 1, temp2->guests[i].name);
                                                 printf("| Jenis Kelamin: %-42c |\n", temp2->guests[i].gender);
                                                 printf("| Umur - Status: %-3d - %-36s |\n", temp2->guests[i].age, temp2->guests[i].status);
